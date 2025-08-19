@@ -1,0 +1,2798 @@
+===== FILE: Scripts\ClientOnly\ClientGhostCollectionDumpSystem.cs ===== 
+// Assets/Scripts/ClientOnly/ClientGhostCollectionDumpSystem.cs
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using Game.Shared.Util;
+
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+[UpdateInGroup(typeof(InitializationSystemGroup))]
+public partial struct ClientGhostCollectionDumpSystem : ISystem
+{
+    public void OnUpdate(ref SystemState s)
+    {
+        var go = Resources.Load<GameObject>("Ghosts/Player");
+        s.LogInfo("Ghosts", "Resources.Load(\"Ghosts/Player\") = {0}", go ? "OK" : "NULL");
+
+        var q = s.GetEntityQuery(ComponentType.ReadOnly<GhostCollection>());
+        if (!q.IsEmptyIgnoreFilter)
+        {
+            var coll = q.GetSingleton<GhostCollection>();
+            s.LogInfo("Ghosts", "GhostCollection NumLoadedPrefabs={0}", coll.NumLoadedPrefabs);
+        }
+        else
+        {
+            s.LogWarn("Ghosts", "No GhostCollection entity found.");
+        }
+        s.Enabled = false;
+    }
+} 
+ 
+===== FILE: Scripts\ClientOnly\ClientGhostPresenceLogSystem.cs ===== 
+// Assets/Scripts/ClientOnly/ClientGhostPresenceLogSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using Unity.Transforms;
+using Game.Shared.Authoring;
+using Game.Shared.Util;
+
+namespace Game.Client
+{
+    public struct GhostCountDebug : IComponentData { public int All, Local; }
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    public partial struct ClientGhostPresenceLogSystem : ISystem
+    {
+        public void OnCreate(ref SystemState s)
+        {
+            s.EntityManager.CreateSingleton(new GhostCountDebug { All = -1, Local = -1 });
+        }
+
+        public void OnUpdate(ref SystemState s)
+        {
+            ref var dbg = ref SystemAPI.GetSingletonRW<GhostCountDebug>().ValueRW;
+
+            var qAll   = SystemAPI.QueryBuilder().WithAll<PlayerTag>().Build();
+            var qLocal = SystemAPI.QueryBuilder().WithAll<PlayerTag, GhostOwnerIsLocal>().Build();
+
+            int all   = qAll.CalculateEntityCount();
+            int local = qLocal.CalculateEntityCount();
+
+            if (all != dbg.All || local != dbg.Local)
+            {
+                s.LogInfo("Ghosts", "PlayerGhosts total={0}, local={1}", all, local);
+                dbg.All = all; dbg.Local = local;
+            }
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ClientOnly\ClientInputDebugLogSystem.cs ===== 
+﻿// Assets/Scripts/ClientOnly/ClientInputDebugLogSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Unity.Transforms;
+using UnityEngine;
+using ECSPlayerInput = Game.Shared.Authoring.PlayerInput;
+
+#if ENABLE_INPUT_SYSTEM
+using UInput = UnityEngine.InputSystem;
+#endif
+
+namespace Game.Client
+{
+    /// Loggt Tasten-Events (alt+neu) und den ECS-Input des lokalen Owner-Ghosts.
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(GhostInputSystemGroup))]
+    [UpdateAfter(typeof(GatherPlayerInputSystem))]
+    public partial struct ClientInputDebugLogSystem : ISystem
+    {
+        private EntityQuery _localOwnerQ;     // Query NUR zum Finden eines lokalen Ghosts
+        private double _nextSample;           // für periodische Logs
+        private double _nextNoTargetWarn;     // anti-spam für "kein lokaler Ghost"
+        private float _lastH, _lastV;
+        private byte _lastJ;
+
+        public void OnCreate(ref SystemState s)
+        {
+            // WICHTIG: Query einmalig in OnCreate bauen (schneller, keine Warning)
+            // Achtung: GhostOwnerIsLocal kann enableable sein -> KEIN GetSingletonEntity() benutzen!
+            _localOwnerQ = SystemAPI.QueryBuilder()
+                .WithAll<ECSPlayerInput, GhostOwnerIsLocal>()
+                .Build();
+        }
+
+        public void OnUpdate(ref SystemState s)
+        {
+            // 1) Sofortige Key-Events loggen (neues Input-System)
+#if ENABLE_INPUT_SYSTEM
+            var kb = UInput.Keyboard.current;
+            if (kb != null)
+            {
+                if (kb.wKey.wasPressedThisFrame) Debug.Log("[Input] W down");
+                if (kb.aKey.wasPressedThisFrame) Debug.Log("[Input] A down");
+                if (kb.sKey.wasPressedThisFrame) Debug.Log("[Input] S down");
+                if (kb.dKey.wasPressedThisFrame) Debug.Log("[Input] D down");
+                if (kb.spaceKey.wasPressedThisFrame) Debug.Log("[Input] SPACE down");
+            }
+#endif
+            // 2) Sofortige Key-Events loggen (altes Input-System)
+            if (Input.GetKeyDown(KeyCode.W)) Debug.Log("[Input] W down (old)");
+            if (Input.GetKeyDown(KeyCode.A)) Debug.Log("[Input] A down (old)");
+            if (Input.GetKeyDown(KeyCode.S)) Debug.Log("[Input] S down (old)");
+            if (Input.GetKeyDown(KeyCode.D)) Debug.Log("[Input] D down (old)");
+            if (Input.GetKeyDown(KeyCode.Space)) Debug.Log("[Input] SPACE down (old)");
+
+            // 3) ECS-Input des lokalen Ghosts loggen (bei Änderung / alle 1.5 s)
+            var em = s.EntityManager;
+            Entity target = Entity.Null;
+
+            // a) Falls NetCode bereits ein CommandTarget gesetzt hat, ist das am genauesten
+            if (SystemAPI.TryGetSingleton<CommandTarget>(out var ct) &&
+                ct.targetEntity != Entity.Null &&
+                em.HasComponent<ECSPlayerInput>(ct.targetEntity))
+            {
+                target = ct.targetEntity;
+            }
+            else
+            {
+                // b) Fallback: ersten lokalen Owner-Ghost nehmen
+                using var ents = _localOwnerQ.ToEntityArray(Allocator.Temp); // <-- sicher mit enableable Types
+                if (ents.Length > 0)
+                    target = ents[0];
+            }
+
+            if (target == Entity.Null)
+            {
+                var t = SystemAPI.Time.ElapsedTime;
+                if (t >= _nextNoTargetWarn)
+                {
+                    Debug.Log("[Input] Kein lokaler Player (GhostOwnerIsLocal) gefunden – Handshake/Spawn noch nicht fertig?");
+                    _nextNoTargetWarn = t + 1.0f;
+                }
+                return;
+            }
+
+            // Komponenten lesen
+            var input = em.GetComponentData<ECSPlayerInput>(target);
+            float h = input.Horizontal;
+            float v = input.Vertical;
+            byte j = (byte)(input.Jump.IsSet ? 1 : 0);
+
+            bool changed = Mathf.Abs(h - _lastH) > 0.01f
+                           || Mathf.Abs(v - _lastV) > 0.01f
+                           || j != _lastJ;
+
+            var now = SystemAPI.Time.ElapsedTime;
+            if (changed || now >= _nextSample)
+            {
+                if (em.HasComponent<LocalTransform>(target))
+                {
+                    var xf = em.GetComponentData<LocalTransform>(target);
+                    Debug.Log($"[Input] ECS h={h:0.00} v={v:0.00} jump={j}  pos=({xf.Position.x:0.00},{xf.Position.y:0.00},{xf.Position.z:0.00})");
+                }
+                else
+                {
+                    Debug.Log($"[Input] ECS h={h:0.00} v={v:0.00} jump={j}");
+                }
+
+                _lastH = h; _lastV = v; _lastJ = j;
+                _nextSample = now + 1.5f;
+            }
+        }
+    }
+}
+ 
+ 
+===== FILE: Scripts\ClientOnly\ClientLogOnHaveIdSystem.cs ===== 
+﻿// Assets/Scripts/ClientOnly/ClientLogOnHaveIdSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Util;
+
+namespace Game.Client
+{
+    public struct ClientConnSeenTag : IComponentData {}
+    public struct ClientInGameLoggedTag : IComponentData {}
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ClientLogOnHaveIdSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState state)
+        {
+            var em  = state.EntityManager;
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+            var q = SystemAPI.QueryBuilder()
+                .WithAll<NetworkId>()
+                .WithNone<ClientConnSeenTag>()
+                .Build();
+
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            foreach (var e in ents)
+            {
+                var id = em.GetComponentData<NetworkId>(e).Value;
+                state.LogInfo("Conn", "Have NetworkId={0}", id);
+                ecb.AddComponent<ClientConnSeenTag>(e);
+            }
+            ecb.Playback(em);
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ClientOnly\ClientLogOnInGameSystem.cs ===== 
+﻿// Assets/Scripts/ClientOnly/ClientLogOnInGameSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Util;
+
+namespace Game.Client
+{
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [UpdateAfter(typeof(ClientLogOnHaveIdSystem))]
+    public partial struct ClientLogOnInGameSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState state)
+        {
+            var em  = state.EntityManager;
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+            var q = SystemAPI.QueryBuilder()
+                .WithAll<NetworkId, NetworkStreamInGame>()
+                .WithNone<ClientInGameLoggedTag>()
+                .Build();
+
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            foreach (var e in ents)
+            {
+                var id = em.GetComponentData<NetworkId>(e).Value;
+                state.LogInfo("Conn", "Connection is InGame (netId={0})", id);
+                ecb.AddComponent<ClientInGameLoggedTag>(e);
+            }
+            ecb.Playback(em);
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ClientOnly\ClientOnHelloRpcSystem.cs ===== 
+﻿// Assets/Scripts/ClientOnly/ClientOnHelloRpcSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Net;
+using Game.Shared.Util;
+
+namespace Game.Client
+{
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ClientOnHelloRpcSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState s)
+        {
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+            foreach (var (hello, recv, e) in SystemAPI
+                         .Query<RefRO<ServerHelloRpc>, RefRO<ReceiveRpcCommandRequest>>()
+                         .WithEntityAccess())
+            {
+                s.LogInfo("RPC", "Hello from server (RPC arrived)");
+                ecb.DestroyEntity(e);
+            }
+
+            ecb.Playback(s.EntityManager);
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ClientOnly\ClientRequestInGameSystem.cs ===== 
+﻿// Assets/Scripts/ClientOnly/ClientRequestInGameSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using Game.Shared.Net;
+
+namespace Game.Client
+{
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [UpdateAfter(typeof(Game.Shared.Net.RegisterGhostsFromRegistrySystem))]
+    public partial struct ClientRequestInGameSystem : ISystem
+    {
+        public void OnCreate(ref SystemState s)
+        {
+            s.RequireForUpdate<NetworkId>();               // Verbindung existiert
+            s.RequireForUpdate<Game.Shared.Net.GhostsRegisteredTag>(); // lokale Registrierung fertig
+        }
+
+        public void OnUpdate(ref SystemState s)
+        {
+            var connQ = SystemAPI.QueryBuilder().WithAll<NetworkStreamConnection>().Build();
+            if (connQ.IsEmpty) return;
+
+            var conn = connQ.GetSingletonEntity();
+
+            // WICHTIG: Client selbst in den InGame-State bringen (Empfang freischalten)
+            if (!s.EntityManager.HasComponent<NetworkStreamInGame>(conn))
+            {
+                s.EntityManager.AddComponent<NetworkStreamInGame>(conn);
+                Debug.Log("[Client][RPC] Marked local connection InGame");
+            }
+
+            // RPC an den Server schicken (wie gehabt)
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            var req = ecb.CreateEntity();
+            ecb.AddComponent(req, new GoInGameRpc());
+            ecb.AddComponent(req, new SendRpcCommandRequest { TargetConnection = conn });
+            ecb.Playback(s.EntityManager);
+
+            Debug.Log("[Client][RPC] Sent GoInGameRpc");
+            s.Enabled = false; // nur einmal
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ClientOnly\FollowLocalPlayer.cs ===== 
+﻿using Unity.Entities;
+using Unity.NetCode;
+using Unity.Transforms;
+using Unity.Mathematics;
+using UnityEngine;
+
+public sealed class FollowLocalPlayer : MonoBehaviour
+{
+    World _clientWorld;
+    EntityQuery _connQ;          // Query auf die Connection
+    bool _connQCreated;
+
+    void OnDestroy()
+    {
+        if (_connQCreated) _connQ.Dispose();
+    }
+
+    void LateUpdate()
+    {
+        // 1) Client-World nur per Name bestimmen (keine Queries! -> kein Konflikt mit AsyncLoadSceneJob)
+        if (_clientWorld == null || !_clientWorld.IsCreated)
+        {
+            if (!TryGetClientWorldByName(out _clientWorld))
+                return; // noch nicht da
+            // Query wird erst im nächsten Block erstellt
+        }
+
+        var em = _clientWorld.EntityManager;
+
+        // 2) Query EINMAL anlegen (keine enableable Komponente drin!)
+        if (!_connQCreated)
+        {
+            _connQ = em.CreateEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<NetworkId>(),
+                    ComponentType.ReadOnly<NetworkStreamInGame>(),
+                    ComponentType.ReadOnly<CommandTarget>()
+                }
+            });
+            _connQCreated = true;
+        }
+
+        if (_connQ.IsEmptyIgnoreFilter)
+            return; // noch nicht "InGame"
+
+        // 3) Verbindung holen und Ziel-Entity (dein lokaler Player) aus CommandTarget lesen
+        var conn = _connQ.GetSingletonEntity();
+        var ct   = em.GetComponentData<CommandTarget>(conn);   // Feld heißt i.d.R. "targetEntity"
+
+        if (ct.targetEntity == Entity.Null)                     // ggf. Feldname "TargetEntity" je nach NetCode-Version
+            return;
+        if (!em.HasComponent<LocalTransform>(ct.targetEntity))
+            return;
+
+        var lt = em.GetComponentData<LocalTransform>(ct.targetEntity);
+
+        // 4) Kamera folgen lassen (simple Third-Person-Versatz)
+        Vector3 pos = (Vector3)lt.Position;
+        Vector3 fwd = (Vector3)lt.Forward();
+
+        transform.position = pos + new Vector3(0f, 3f, -5f);
+        transform.rotation = Quaternion.LookRotation(fwd, Vector3.up);
+    }
+
+    static bool TryGetClientWorldByName(out World w)
+    {
+        var worlds = World.All;
+        for (int i = 0; i < worlds.Count; i++)
+        {
+            var candidate = worlds[i];
+            // NetCode benennt die Client-World typischerweise "Client" / "ClientWorld0"
+            if (candidate.Name.IndexOf("client", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                w = candidate;
+                return true;
+            }
+        }
+        w = null;
+        return false;
+    }
+}
+ 
+ 
+===== FILE: Scripts\ClientOnly\GatherPlayerInputSystem.cs ===== 
+﻿// Assets/Scripts/ClientOnly/GatherPlayerInputSystem.cs
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using Game.Shared.Authoring;
+using ECSPlayerInput = Game.Shared.Authoring.PlayerInput;
+
+#if ENABLE_INPUT_SYSTEM
+using UInput = UnityEngine.InputSystem;
+#endif
+
+namespace Game.Client
+{
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(GhostInputSystemGroup))]
+    public partial struct GatherPlayerInputSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            state.RequireForUpdate<ECSPlayerInput>();
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            float h = 0f, v = 0f; bool jump = false;
+
+#if ENABLE_INPUT_SYSTEM
+            var kb = UInput.Keyboard.current;
+            if (kb != null)
+            {
+                h = (kb.dKey.isPressed ? 1 : 0) + (kb.aKey.isPressed ? -1 : 0);
+                v = (kb.wKey.isPressed ? 1 : 0) + (kb.sKey.isPressed ? -1 : 0);
+                jump = kb.spaceKey.wasPressedThisFrame;
+            }
+#endif
+            if (Mathf.Approximately(h, 0f) && Mathf.Approximately(v, 0f))
+            {
+                h = Input.GetAxisRaw("Horizontal");
+                v = Input.GetAxisRaw("Vertical");
+                jump = jump || Input.GetKeyDown(KeyCode.Space);
+            }
+
+            // **WICHTIG**: am CommandTarget schreiben (kein EntityManager.GetComponentRW benutzen)
+            if (SystemAPI.TryGetSingleton<CommandTarget>(out var ct)
+                && ct.targetEntity != Entity.Null
+                && state.EntityManager.HasComponent<ECSPlayerInput>(ct.targetEntity))
+            {
+                var rw = SystemAPI.GetComponentRW<ECSPlayerInput>(ct.targetEntity);
+                ref var i = ref rw.ValueRW;
+                i.Horizontal = Mathf.Clamp(h, -1f, 1f);
+                i.Vertical   = Mathf.Clamp(v, -1f, 1f);
+                if (jump) i.Jump.Set();
+                return;
+            }
+
+            // Fallback: alle lokal besessenen Ghosts
+            foreach (var input in SystemAPI
+                     .Query<RefRW<ECSPlayerInput>>()
+                     .WithAll<GhostOwnerIsLocal>())
+            {
+                ref var i = ref input.ValueRW;
+                i.Horizontal = Mathf.Clamp(h, -1f, 1f);
+                i.Vertical   = Mathf.Clamp(v, -1f, 1f);
+                if (jump) i.Jump.Set();
+            }
+        }
+    }
+}
+ 
+ 
+===== FILE: Scripts\ClientOnly\LocalInputDebugState.cs ===== 
+// Assets/Scripts/ClientOnly/LogLocalInputSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using Unity.Transforms;
+using ECSPlayerInput = Game.Shared.Authoring.PlayerInput;
+using Game.Shared.Util;
+
+namespace Game.Client
+{
+    public struct LocalInputDebugState : IComponentData
+    {
+        public float LastH, LastV;
+        public byte LastJump;
+        public double NextLogTime;
+        public byte WarnedNoLocal;
+    }
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(GhostInputSystemGroup))]
+    [UpdateAfter(typeof(GatherPlayerInputSystem))]
+    public partial struct LogLocalInputSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            state.EntityManager.CreateSingleton(new LocalInputDebugState
+            {
+                LastH = 2, LastV = 2, LastJump = 0, NextLogTime = 0, WarnedNoLocal = 0
+            });
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            var em = state.EntityManager;
+            ref var dbg = ref SystemAPI.GetSingletonRW<LocalInputDebugState>().ValueRW;
+            double time = SystemAPI.Time.ElapsedTime;
+
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<ECSPlayerInput>(),
+                ComponentType.ReadOnly<GhostOwnerIsLocal>());
+
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            if (ents.Length == 0)
+            {
+                if (dbg.WarnedNoLocal == 0 && time >= dbg.NextLogTime)
+                {
+                    state.LogInfo("Input", "Kein lokaler Player gefunden (noch nicht connected/spawned?).");
+                    dbg.WarnedNoLocal = 1;
+                    dbg.NextLogTime = time + 1.0;
+                }
+                return;
+            }
+
+            dbg.WarnedNoLocal = 0;
+
+            var e = ents[0];
+            var input = em.GetComponentData<ECSPlayerInput>(e);
+
+            float h = input.Horizontal;
+            float v = input.Vertical;
+            bool jump = input.Jump.IsSet;
+
+            bool changed = Mathf.Abs(h - dbg.LastH) > 0.01f
+                           || Mathf.Abs(v - dbg.LastV) > 0.01f
+                           || (jump ? (dbg.LastJump == 0) : (dbg.LastJump != 0));
+
+            if (changed || time >= dbg.NextLogTime)
+            {
+                if (em.HasComponent<LocalTransform>(e))
+                {
+                    var xf = em.GetComponentData<LocalTransform>(e);
+                    state.LogInfo("Input", "h={0:0.00} v={1:0.00} jump={2}  pos=({3:0.00},{4:0.00},{5:0.00})",
+                        h, v, jump ? 1 : 0, xf.Position.x, xf.Position.y, xf.Position.z);
+                }
+                else
+                {
+                    state.LogInfo("Input", "h={0:0.00} v={1:0.00} jump={2}",
+                        h, v, jump ? 1 : 0);
+                }
+
+                dbg.LastH = h;
+                dbg.LastV = v;
+                dbg.LastJump = (byte)(jump ? 1 : 0);
+                dbg.NextLogTime = time + 1.5;
+            }
+        }
+    }
+}
+ 
+ 
+===== FILE: Scripts\Editor\BFFileLoggerEditor.cs ===== 
+﻿#if UNITY_EDITOR
+using UnityEditor;
+using UnityEngine;
+
+[InitializeOnLoad]
+public static class BFFileLoggerEditor
+{
+    static BFFileLoggerEditor()
+    {
+        // Bei Enter Play Mode starten – auch ohne Domain Reload
+        EditorApplication.playModeStateChanged += state =>
+        {
+            if (state == PlayModeStateChange.EnteredPlayMode)
+            {
+                // gewünschten Prefix in PlayerPrefs spiegeln (zur Laufzeit lesbar)
+                var pfx = EditorPrefs.GetString("BF_LogPrefix", "client"); // Wunsch: "client"
+                PlayerPrefs.SetString("BF_LogPrefix", pfx);
+                PlayerPrefs.Save();
+
+                BFFileLogger.StartIfNeeded(); // erstellt die Datei + schreibt den Pfad ins Console-Log
+            }
+            else if (state == PlayModeStateChange.ExitingPlayMode)
+            {
+                BFFileLogger.Shutdown();
+            }
+        };
+    }
+
+    [MenuItem("Bastionfall/Logs/Prefix/Client")]
+    static void SetClient() => EditorPrefs.SetString("BF_LogPrefix", "client");
+
+    [MenuItem("Bastionfall/Logs/Prefix/Server")]
+    static void SetServer() => EditorPrefs.SetString("BF_LogPrefix", "server");
+
+    [MenuItem("Bastionfall/Logs/Prefix/Play")]
+    static void SetPlay() => EditorPrefs.SetString("BF_LogPrefix", "play");
+
+    [MenuItem("Bastionfall/Logs/Open persistentDataPath")]
+    static void OpenFolder()
+    {
+        EditorUtility.RevealInFinder(System.IO.Path.Combine(Application.persistentDataPath, "Logs"));
+    }
+}
+#endif 
+ 
+===== FILE: Scripts\Editor\BuildAll.cs ===== 
+﻿// Assets/Scripts/Editor/Build/BuildAll.cs
+using System;
+using System.IO;
+using System.Linq;
+using System.IO.Compression;
+using SysDiag = System.Diagnostics;
+using System.Reflection;
+using UnityEditor;
+using UnityEditor.Build.Reporting;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UDebug = UnityEngine.Debug;
+
+public static class BuildAll
+{
+    // Produkt-/Binary-Namen
+    const string ProductClient = "Bastionfall";
+    const string ProductServer = "Bastionfall_Server";
+
+    // Default-Startparameter (für Startskripte)
+    const string DefaultAddress = "127.0.0.1";
+    const int    DefaultPort    = 7979;
+
+    // Struktur: Builds/<Channel>/<Platform>/<Role>/
+    enum Channel { Debug, Release }
+    enum Role { Client, Server }
+
+    // ---------- MENÜ: RELEASE -------------------------------------------------
+
+    [MenuItem("Bastionfall/Build/Release/Windows Client")]
+    public static void Release_Win_Client()  => Build(Channel.Release, BuildTarget.StandaloneWindows64, Role.Client);
+
+    [MenuItem("Bastionfall/Build/Release/Linux Client")]
+    public static void Release_Lin_Client()  => Build(Channel.Release, BuildTarget.StandaloneLinux64,   Role.Client);
+
+    [MenuItem("Bastionfall/Build/Release/Windows Server")]
+    public static void Release_Win_Server()  => Build(Channel.Release, BuildTarget.StandaloneWindows64, Role.Server);
+
+    [MenuItem("Bastionfall/Build/Release/Linux Server")]
+    public static void Release_Lin_Server()  => Build(Channel.Release, BuildTarget.StandaloneLinux64,   Role.Server);
+
+    [MenuItem("Bastionfall/Build/Release/Windows Package")]
+    public static void Release_Win_Package() => Package(Channel.Release, "Windows");
+
+    [MenuItem("Bastionfall/Build/Release/Linux Package")]
+    public static void Release_Lin_Package() => Package(Channel.Release, "Linux");
+
+    // ---------- MENÜ: DEBUG ---------------------------------------------------
+
+    [MenuItem("Bastionfall/Build/Debug/Windows Client")]
+    public static void Debug_Win_Client()    => Build(Channel.Debug, BuildTarget.StandaloneWindows64, Role.Client);
+
+    [MenuItem("Bastionfall/Build/Debug/Linux Client")]
+    public static void Debug_Lin_Client()    => Build(Channel.Debug, BuildTarget.StandaloneLinux64,   Role.Client);
+
+    [MenuItem("Bastionfall/Build/Debug/Windows Server")]
+    public static void Debug_Win_Server()    => Build(Channel.Debug, BuildTarget.StandaloneWindows64, Role.Server);
+
+    [MenuItem("Bastionfall/Build/Debug/Linux Server")]
+    public static void Debug_Lin_Server()    => Build(Channel.Debug, BuildTarget.StandaloneLinux64,   Role.Server);
+
+    [MenuItem("Bastionfall/Build/Debug/Windows Package")]
+    public static void Debug_Win_Package()   => Package(Channel.Debug, "Windows");
+
+    [MenuItem("Bastionfall/Build/Debug/Linux Package")]
+    public static void Debug_Lin_Package()   => Package(Channel.Debug, "Linux");
+
+    // ---------- MENÜ: BAKE ----------------------------------------------------
+
+    [MenuItem("Bastionfall/Bake/Scenes in Build Settings")]
+    public static void Bake_ScenesInBuildSettings()
+    {
+        UDebug.Log("here");
+        var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
+        if (scenes.Length == 0) { UDebug.LogWarning("[Bake] Keine Szenen in Build Settings."); return; }
+
+        var original = EditorSceneManager.GetActiveScene().path;
+        try
+        {
+            for (int i = 0; i < scenes.Length; i++)
+            {
+                var p = scenes[i];
+                EditorUtility.DisplayProgressBar("Bake Scenes", $"Öffne & backe: {Path.GetFileNameWithoutExtension(p)}", (float)i / scenes.Length);
+                EditorSceneManager.OpenScene(p, OpenSceneMode.Single);
+
+                // SubScenes backen (per Reflection, funktioniert mit verschiedenen DOTS Versionen)
+                TryBakeAllOpenSubScenes();
+
+                AssetDatabase.SaveAssets();
+                EditorSceneManager.SaveOpenScenes();
+            }
+        }
+        finally
+        {
+            EditorUtility.ClearProgressBar();
+            if (!string.IsNullOrEmpty(original) && File.Exists(original))
+                EditorSceneManager.OpenScene(original, OpenSceneMode.Single);
+        }
+
+        UDebug.Log("[Bake] Fertig – alle Szenen aus den Build Settings gespeichert & (sofern verfügbar) SubScenes gebacken.");
+    }
+
+    // ---------- KERN-BUILD ----------------------------------------------------
+
+    static void Build(Channel channel, BuildTarget target, Role role)
+    {
+        var scenes = EditorBuildSettings.scenes;
+        if (scenes == null || scenes.Length == 0)
+            throw new Exception("No scenes in Build Settings.");
+
+        bool il2cpp = channel == Channel.Release; // Release = IL2CPP, Debug = Mono
+        bool server = role == Role.Server;
+
+        var outRoot = GetOutputRoot(channel, target, role);
+        Directory.CreateDirectory(outRoot);
+        Directory.CreateDirectory(Path.Combine(outRoot, "logs"));
+
+        var group = BuildTargetGroup.Standalone;
+        EditorUserBuildSettings.SwitchActiveBuildTarget(group, target);
+        EditorUserBuildSettings.standaloneBuildSubtarget = server
+            ? StandaloneBuildSubtarget.Server
+            : StandaloneBuildSubtarget.Player;
+
+        PlayerSettings.productName = server ? ProductServer : ProductClient;
+        PlayerSettings.SetScriptingBackend(group, il2cpp ? ScriptingImplementation.IL2CPP : ScriptingImplementation.Mono2x);
+
+        var options = BuildOptions.CompressWithLz4;
+        if (!il2cpp) options |= BuildOptions.Development | BuildOptions.AllowDebugging | BuildOptions.ConnectWithProfiler;
+        if (server)  options |= BuildOptions.EnableHeadlessMode;
+
+        string binary = GetBinaryName(target, server);
+        string location = Path.Combine(outRoot, binary);
+
+        var sw = SysDiag.Stopwatch.StartNew();
+        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+        {
+            target = target,
+            subtarget = (int)(server ? StandaloneBuildSubtarget.Server : StandaloneBuildSubtarget.Player),
+            options = options,
+            scenes = scenes.Select(s => s.path).ToArray(),
+            locationPathName = location
+        });
+        sw.Stop();
+
+        if (report.summary.result != BuildResult.Succeeded)
+            throw new Exception($"{target} {role} {channel} build failed: {report.summary.result}");
+
+        UDebug.Log($"{target} {role} {channel} OK: {report.summary.totalSize/(1024*1024)} MB  |  Build: {sw.Elapsed:mm\\:ss}");
+
+        // Start-Skripte schreiben
+        if (target == BuildTarget.StandaloneWindows64) WriteWindowsScripts(outRoot, server);
+        else if (target == BuildTarget.StandaloneLinux64) WriteLinuxScripts(outRoot, server);
+
+        EditorUtility.RevealInFinder(outRoot);
+    }
+
+    // ---------- PACKAGING -----------------------------------------------------
+
+    static void Package(Channel channel, string platform)
+    {
+        // Packt die komplette Plattform-Mappe (Client + Server) als ZIP
+        var root = Path.Combine("Builds", channel.ToString(), platform);
+        if (!Directory.Exists(root)) { UDebug.LogWarning($"[Package] Ordner existiert nicht: {root}"); return; }
+
+        Directory.CreateDirectory("Builds/Packages");
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var zipPath = Path.Combine("Builds/Packages", $"Bastionfall_{platform}_{channel}_{stamp}.zip");
+
+        if (File.Exists(zipPath)) File.Delete(zipPath);
+        ZipFile.CreateFromDirectory(root, zipPath, System.IO.Compression.CompressionLevel.Optimal, includeBaseDirectory: true);
+        EditorUtility.RevealInFinder(zipPath);
+        UDebug.Log($"[Package] Fertig: {zipPath}");
+    }
+
+    // ---------- UTIL ----------------------------------------------------------
+
+    static string GetOutputRoot(Channel ch, BuildTarget t, Role r)
+    {
+        var platform = t == BuildTarget.StandaloneWindows64 ? "Windows" :
+                       t == BuildTarget.StandaloneLinux64   ? "Linux"   : t.ToString();
+
+        var role = r == Role.Client ? "Client" : "Server";
+        return Path.Combine("Builds", ch.ToString(), platform, role);
+    }
+
+    static string GetBinaryName(BuildTarget t, bool server)
+    {
+        var prod = server ? ProductServer : ProductClient;
+        switch (t)
+        {
+            case BuildTarget.StandaloneWindows64: return prod + ".exe";
+            case BuildTarget.StandaloneLinux64:   return prod + ".x86_64";
+            default: throw new NotSupportedException(t.ToString());
+        }
+    }
+
+    static void WriteWindowsScripts(string dir, bool server)
+    {
+        if (!server)
+        {
+            File.WriteAllText(Path.Combine(dir, "Start_Client.bat"),
+$@"@echo off
+setlocal
+mkdir ""logs"" 2>nul
+set EXE=""{ProductClient}.exe""
+%EXE% -mode client -address {DefaultAddress} -port {DefaultPort} -logdir logs -logprefix client
+");
+        }
+        else
+        {
+            File.WriteAllText(Path.Combine(dir, "Start_Server.bat"),
+$@"@echo off
+setlocal
+mkdir ""logs"" 2>nul
+set EXE=""{ProductServer}.exe""
+%EXE% -batchmode -nographics -mode server -port {DefaultPort} -logdir logs -logprefix server
+");
+        }
+    }
+
+    static void WriteLinuxScripts(string dir, bool server)
+    {
+        if (!server)
+        {
+            var sh = Path.Combine(dir, "start_client.sh");
+            File.WriteAllText(sh,
+$@"#!/usr/bin/env bash
+mkdir -p ""$(dirname ""$0"")/logs""
+cd ""$(dirname ""$0"")""
+./{ProductClient}.x86_64 -mode client -address {DefaultAddress} -port {DefaultPort} -logdir logs -logprefix client
+");
+            TryMakeExecutable(sh);
+        }
+        else
+        {
+            var sh = Path.Combine(dir, "start_server.sh");
+            File.WriteAllText(sh,
+$@"#!/usr/bin/env bash
+mkdir -p ""$(dirname ""$0"")/logs""
+cd ""$(dirname ""$0"")""
+./{ProductServer}.x86_64 -batchmode -nographics -mode server -port {DefaultPort} -logdir logs -logprefix server
+");
+            TryMakeExecutable(sh);
+        }
+    }
+
+    static void TryMakeExecutable(string path)
+    {
+        try
+        {
+            SysDiag.Process.Start(new SysDiag.ProcessStartInfo {
+                FileName = "bash",
+                Arguments = $"-lc \"chmod +x '{path}'\"",
+                UseShellExecute = false
+            });
+        }
+        catch { /* kein bash verfügbar – ok */ }
+    }
+
+    static void TryBakeAllOpenSubScenes()
+    {
+        try
+        {
+            var asm = AppDomain.CurrentDomain.GetAssemblies()
+                      .FirstOrDefault(a => a.GetName().Name == "Unity.Scenes.Editor");
+            if (asm == null) return;
+
+            var t = asm.GetType("Unity.Scenes.Editor.SubSceneInspectorUtility");
+            if (t == null) return;
+
+            // Häufige API-Namen in verschiedenen Versionen
+            var m = t.GetMethod("BakeAllOpenSubScenes", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+                 ?? t.GetMethod("BakeOpenSubScenes",     BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+                 ?? t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+                       .FirstOrDefault(mi => mi.Name.Contains("Bake") && mi.GetParameters().Length == 0);
+
+            m?.Invoke(null, null);
+        }
+        catch (Exception e)
+        {
+            UDebug.Log($"[Bake] Konnte SubScenes nicht backen: {e.Message}");
+        }
+    }
+}
+ 
+ 
+===== FILE: Scripts\Editor\GhostPrefabGuidCheck.cs ===== 
+﻿#if UNITY_EDITOR
+using UnityEditor;
+using UnityEngine;
+
+public static class GhostPrefabGuidCheck
+{
+    [MenuItem("Tools/NetCode/Check Player Prefab GUIDs")]
+    public static void Check()
+    {
+        var res = Resources.Load<GameObject>("Ghosts/Player");
+        if (!res) { Debug.LogError("Resources/Ghosts/Player.prefab not found"); return; }
+
+        var resPath = AssetDatabase.GetAssetPath(res);
+        var resGuid = AssetDatabase.AssetPathToGUID(resPath);
+
+        // Suche einen PlayerSpawnerAuthoring im geöffneten SubScene/Scene
+        var spawner = Object.FindFirstObjectByType<Game.Shared.Authoring.PlayerSpawnerAuthoring>(FindObjectsInactive.Exclude);
+        if (!spawner || !spawner.PlayerPrefab) { Debug.LogError("No PlayerSpawnerAuthoring or no PlayerPrefab set."); return; }
+
+        var spPath = AssetDatabase.GetAssetPath(spawner.PlayerPrefab);
+        var spGuid = AssetDatabase.AssetPathToGUID(spPath);
+
+        Debug.Log($"Resources GUID: {resGuid}\nSpawner GUID:   {spGuid}\nMatch: {resGuid == spGuid}");
+    }
+}
+#endif 
+ 
+===== FILE: Scripts\Editor\NetCodePlayToolsProxy.cs ===== 
+﻿// Assets/Scripts/Editor/NetCodePlayToolsProxy.cs
+using System;
+using System.Linq;
+using System.Reflection;
+using UnityEditor;
+
+public static class NetCodePlayToolsProxy
+{
+    // Versucht, in Unity.NetCode.Editor die PlayTools auf Client zu stellen.
+    public static bool TrySetClient()  => TrySet("Client");
+    public static bool TrySetServer()  => TrySet("Server");
+    public static bool TrySetClientAndServer() => TrySet("ClientAndServer");
+
+    static bool TrySet(string enumName)
+    {
+        try
+        {
+            var asm = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Unity.NetCode.Editor");
+            if (asm == null) return false;
+
+            var tools = asm.GetType("Unity.NetCode.Editor.NetCodePlayModeTools")
+                       ?? asm.GetType("Unity.NetCode.Editor.PlayModeTools")
+                       ?? asm.GetType("Unity.NetCode.Editor.NetCodeBootstrapTools");
+            if (tools == null) return false;
+
+            // Enum-Typ finden
+            var enumType =
+                asm.GetType("Unity.NetCode.Editor.PlayType") ??
+                asm.GetType("Unity.NetCode.Editor.NetCodePlayType") ??
+                asm.GetTypes().FirstOrDefault(t => t.IsEnum && t.Name.Contains("Play", StringComparison.OrdinalIgnoreCase));
+
+            object enumVal = enumType != null ? Enum.Parse(enumType, enumName, true) : null;
+
+            // Property 'RequestedPlayType'
+            var prop = tools.GetProperty("RequestedPlayType", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            if (prop != null && enumVal != null) { prop.SetValue(null, enumVal); return true; }
+
+            // Methode 'SetRequestedPlayType(enum)'
+            var meth = tools.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                            .FirstOrDefault(m => m.Name.Contains("SetRequestedPlayType") && m.GetParameters().Length == 1);
+            if (meth != null && enumVal != null) { meth.Invoke(null, new[] { enumVal }); return true; }
+
+            // Fallback: Property 'PlayType'
+            var prop2 = tools.GetProperty("PlayType", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            if (prop2 != null && enumVal != null) { prop2.SetValue(null, enumVal); return true; }
+        }
+        catch { /* still ok */ }
+
+        return false;
+    }
+}
+ 
+ 
+===== FILE: Scripts\Editor\NetGameSettingsEditor.cs ===== 
+// Assets/Scripts/Editor/NetGameSettingsEditor.cs
+using UnityEditor;
+using UnityEngine;
+using Game.Shared.Config;
+
+[CustomEditor(typeof(NetGameSettings))]
+public class NetGameSettingsEditor : Editor
+{
+    SerializedProperty playProfile, forceClient, address, port, despawn, runMode, preferListen;
+
+    void OnEnable()
+    {
+        playProfile  = serializedObject.FindProperty("PlayProfile");
+        forceClient  = serializedObject.FindProperty("ForceClientPlayType");
+        address      = serializedObject.FindProperty("ConnectAddress");
+        port         = serializedObject.FindProperty("Port");
+        despawn      = serializedObject.FindProperty("DespawnOnDisconnect");
+        runMode      = serializedObject.FindProperty("PlayerRunMode");
+        preferListen = serializedObject.FindProperty("PreferListenWhenLocal");
+    }
+
+    public override void OnInspectorGUI()
+    {
+        serializedObject.Update();
+
+        EditorGUILayout.PropertyField(playProfile, new GUIContent("Play Profile"));
+        var profile = (EditorPlayProfile)playProfile.enumValueIndex;
+
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Network", EditorStyles.boldLabel);
+
+        if (profile == EditorPlayProfile.DedicatedServer)
+        {
+            EditorGUILayout.PropertyField(address, new GUIContent("Address"));
+            EditorGUILayout.PropertyField(port, new GUIContent("Port"));
+        }
+        else if (profile == EditorPlayProfile.DedicatedLocalServer)
+        {
+            if (address.stringValue != "127.0.0.1") address.stringValue = "127.0.0.1";
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUILayout.TextField("Address", "127.0.0.1");
+            EditorGUILayout.PropertyField(port, new GUIContent("Port"));
+            EditorGUILayout.HelpBox("Lokaler Dedicated Server nutzt immer 127.0.0.1.", MessageType.Info);
+        }
+        else // Client
+        {
+            EditorGUILayout.PropertyField(address, new GUIContent("Address"));
+            EditorGUILayout.PropertyField(port, new GUIContent("Port"));
+        }
+
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Server Only", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(despawn, new GUIContent("Despawn On Disconnect"));
+
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Runtime Defaults (non-Editor)", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(runMode, new GUIContent("Run Mode (Player Build)"));
+        EditorGUILayout.PropertyField(preferListen, new GUIContent("Prefer Listen When Local"));
+
+        EditorGUILayout.Space(10);
+        EditorGUILayout.HelpBox(
+            "Wählst du hier 'Client', setzt der Inspector (wenn 'Force Client PlayType' aktiv ist) die NetCode-PlayTools im Editor auf Client.",
+            MessageType.None);
+
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            EditorGUILayout.PropertyField(forceClient, new GUIContent("Force Client PlayType"));
+            if (GUILayout.Button("Apply Now", GUILayout.Width(100)))
+            {
+                NetCodePlayToolsProxy.TrySetClient();
+                Debug.Log("[NetGameSettings] PlayTools → Client");
+            }
+        }
+
+        serializedObject.ApplyModifiedProperties();
+
+        // Auto-Override: Profil=Client + Force aktiv → PlayTools: Client
+        if (profile == EditorPlayProfile.Client && forceClient.boolValue)
+            NetCodePlayToolsProxy.TrySetClient();
+    }
+}
+ 
+ 
+===== FILE: Scripts\Editor\SceneBakeTools.cs ===== 
+#if UNITY_EDITOR
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using Unity.Scenes;                    // SubScene-Component
+// ^ Achte darauf: Deine Game.Editor.asmdef muss Unity.Scenes und Unity.Entities referenzieren.
+
+public static class SceneBakeTools
+{
+    // --------------------------
+    // MENÜEINTRÄGE
+    // --------------------------
+
+    [MenuItem("Build/Bake & Save > Open Scene (incl. SubScenes)")]
+    public static void BakeOpenScene()
+    {
+        var active = SceneManager.GetActiveScene();
+        if (!active.IsValid() || string.IsNullOrEmpty(active.path))
+        {
+            Debug.LogWarning("[Bake] Keine offene Scene mit Pfad gefunden.");
+            return;
+        }
+        BakeOneScene(active.path);
+    }
+
+    [MenuItem("Build/Bake & Save > All Scenes in Build Settings")]
+    public static void BakeAllInBuildSettings()
+    {
+        var list = new List<string>();
+        foreach (var s in EditorBuildSettings.scenes)
+            if (s.enabled) list.Add(s.path);
+
+        BakeScenes(list);
+    }
+
+    [MenuItem("Build/Bake & Save > All Scenes in Project (Assets/**/*.unity)")]
+    public static void BakeAllScenesInProject()
+    {
+        var guids = AssetDatabase.FindAssets("t:SceneAsset");
+        var list = new List<string>(guids.Length);
+        foreach (var g in guids)
+        {
+            var path = AssetDatabase.GUIDToAssetPath(g);
+            if (path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+                list.Add(path);
+        }
+        BakeScenes(list);
+    }
+
+    // --------------------------
+    // CORE
+    // --------------------------
+
+    static void BakeScenes(List<string> scenePaths)
+    {
+        if (scenePaths == null || scenePaths.Count == 0)
+        {
+            Debug.LogWarning("[Bake] Keine Szenen gefunden.");
+            return;
+        }
+
+        try
+        {
+            EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+
+            for (int i = 0; i < scenePaths.Count; i++)
+            {
+                var path = scenePaths[i];
+                EditorUtility.DisplayProgressBar("Baking SubScenes",
+                    $"{Path.GetFileNameWithoutExtension(path)} ({i + 1}/{scenePaths.Count})", (float)i / scenePaths.Count);
+
+                BakeOneScene(path);
+            }
+        }
+        finally
+        {
+            EditorUtility.ClearProgressBar();
+        }
+
+        Debug.Log($"[Bake] Fertig. {scenePaths.Count} Szene(n) verarbeitet.");
+    }
+
+    static void BakeOneScene(string scenePath)
+    {
+        // Szene additiv öffnen, damit wir sie wieder schließen können
+        var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+        if (!scene.IsValid())
+        {
+            Debug.LogError($"[Bake] Szene ungültig: {scenePath}");
+            return;
+        }
+
+        // 1) Alle SubScenes dieser Scene suchen
+        var subScenes = FindSubScenes(scene);
+
+        // 2) Jede SubScene öffnen, "baken" (Import), speichern, schließen
+        for (int i = 0; i < subScenes.Count; i++)
+        {
+            var ssComp = subScenes[i];
+            var ssAsset = ssComp.SceneAsset as SceneAsset;
+            if (ssAsset == null)
+                continue;
+
+            var ssPath = AssetDatabase.GetAssetPath(ssAsset);
+            // SubScene selber als Scene öffnen
+            var ss = EditorSceneManager.OpenScene(ssPath, OpenSceneMode.Additive);
+
+            // Rebuild der Entity-Cache anstoßen (per Reflection, falls verfügbar)
+            TryForceRebuildSubSceneCache(ssComp);
+
+            // Import erzwingen – triggert die Entities-Baking-Pipeline
+            AssetDatabase.ImportAsset(ssPath, ImportAssetOptions.ForceUpdate);
+
+            // Speichern & wieder schließen
+            EditorSceneManager.SaveScene(ss);
+            EditorSceneManager.CloseScene(ss, true);
+        }
+
+        // 3) Hauptszene speichern
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log($"[Bake] Gebacken & gespeichert: {scenePath}  (SubScenes: {subScenes.Count})");
+    }
+
+    static List<SubScene> FindSubScenes(Scene scene)
+    {
+        var list = new List<SubScene>();
+        foreach (var root in scene.GetRootGameObjects())
+            list.AddRange(root.GetComponentsInChildren<SubScene>(true));
+        return list;
+    }
+
+    // Versucht, Unity.Scenes.Editor.SubSceneInspectorUtility.RebuildEntityCache(SubScene) aufzurufen,
+    // wenn es in deiner DOTS-Version vorhanden ist (API variiert je nach Version).
+    static void TryForceRebuildSubSceneCache(SubScene subSceneComp)
+    {
+        try
+        {
+            var editorAsm = AppDomain.CurrentDomain.Load("Unity.Scenes.Editor");
+            var utilType  = editorAsm?.GetType("Unity.Scenes.Editor.SubSceneInspectorUtility");
+            var method    = utilType?.GetMethod("RebuildEntityCache", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static, null, new[] { typeof(SubScene) }, null);
+            method?.Invoke(null, new object[] { subSceneComp });
+        }
+        catch { /* unkritisch – ImportAsset unten triggert Baking ohnehin */ }
+    }
+}
+#endif
+ 
+ 
+===== FILE: Scripts\ServerOnly\ServerConnectionCountMonitor.cs ===== 
+﻿// Assets/Scripts/ServerOnly/ServerConnectionCountMonitorSystem.cs
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Util;
+
+namespace Game.Server
+{
+    public struct ConnectionCountTracker : IComponentData { public int LastCount; }
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    public partial struct ServerConnectionCountMonitorSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            state.EntityManager.CreateSingleton(new ConnectionCountTracker { LastCount = -1 });
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            var q = SystemAPI.QueryBuilder().WithAll<NetworkStreamInGame>().Build();
+            int current = q.CalculateEntityCount();
+
+            var tracker = SystemAPI.GetSingletonRW<ConnectionCountTracker>();
+            if (tracker.ValueRO.LastCount != current)
+            {
+                state.LogInfo("Conn", "InGame connections: {0}", current);
+                tracker.ValueRW.LastCount = current;
+            }
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ServerOnly\ServerDespawnOnDisconnectSystem.cs ===== 
+﻿// Assets/Scripts/ServerOnly/ServerDespawnOnDisconnectSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using Game.Shared.Authoring; // PlayerTag
+using Game.Shared.Config;   // NetGameSettings (ScriptableObject)
+
+namespace Game.Server
+{
+    /// Entfernt Spieler-Ghosts, deren Besitzer nicht mehr InGame/aktiv ist.
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    public partial struct ServerDespawnOnDisconnectSystem : ISystem
+    {
+        bool _despawnEnabled;
+
+        public void OnCreate(ref SystemState s)
+        {
+            // Settings aus Resources lesen (kein ECS-Singleton!)
+            _despawnEnabled = true;
+            var cfg = Resources.Load<NetGameSettings>("NetGameSettings");
+            if (cfg) _despawnEnabled = cfg.DespawnOnDisconnect;
+        }
+
+        public void OnUpdate(ref SystemState s)
+        {
+            if (!_despawnEnabled) return;
+
+            // 1) Aktive (InGame) Owner-NetIds einsammeln
+            var activeIds = new NativeHashSet<int>(16, Allocator.Temp);
+            foreach (var id in SystemAPI.Query<RefRO<NetworkId>>().WithAll<NetworkStreamInGame>())
+                activeIds.Add(id.ValueRO.Value);
+
+            // 2) Alle Player-Ghosts prüfen; Owner nicht aktiv? -> despawn
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            foreach (var (owner, e) in SystemAPI
+                         .Query<RefRO<GhostOwner>>()
+                         .WithAll<PlayerTag>()
+                         .WithEntityAccess())
+            {
+                if (!activeIds.Contains(owner.ValueRO.NetworkId))
+                {
+                    ecb.DestroyEntity(e);
+                    Debug.Log($"[Server] Despawn player (orphaned owner netId={owner.ValueRO.NetworkId}).");
+                }
+            }
+
+            ecb.Playback(s.EntityManager);
+            activeIds.Dispose();
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ServerOnly\ServerGoInGameRpcSystem.cs ===== 
+﻿// Assets/Scripts/ServerOnly/ServerGoInGameRpcSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Net;
+using Game.Shared.Util;
+
+namespace Game.Server
+{
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ServerGoInGameRpcSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState s)
+        {
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+            foreach (var (rpc, recv, e) in SystemAPI
+                     .Query<RefRO<GoInGameRpc>, RefRO<ReceiveRpcCommandRequest>>()
+                     .WithEntityAccess())
+            {
+                var conn = recv.ValueRO.SourceConnection;
+                if (!s.EntityManager.HasComponent<NetworkStreamInGame>(conn))
+                {
+                    ecb.AddComponent<NetworkStreamInGame>(conn);
+                    s.LogInfo("RPC", "Set InGame via RPC");
+                }
+                ecb.DestroyEntity(e);
+            }
+
+            ecb.Playback(s.EntityManager);
+        }
+    }
+}
+ 
+ 
+===== FILE: Scripts\ServerOnly\ServerHelloOnConnectSystem.cs ===== 
+﻿// Assets/Scripts/ServerOnly/ServerHelloOnConnectSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Net;
+using Game.Shared.Util;
+
+namespace Game.Server
+{
+    public struct HelloSentTag : IComponentData {}
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ServerHelloOnConnectSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState s)
+        {
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+            foreach (var (id, e) in SystemAPI
+                         .Query<RefRO<NetworkId>>()
+                         .WithAll<NetworkStreamConnection>()
+                         .WithNone<HelloSentTag>()
+                         .WithEntityAccess())
+            {
+                var msg = ecb.CreateEntity();
+                ecb.AddComponent(msg, new ServerHelloRpc());
+                ecb.AddComponent(msg, new SendRpcCommandRequest { TargetConnection = e });
+
+                ecb.AddComponent<HelloSentTag>(e);
+                s.LogInfo("RPC", "Hello → netId={0}", id.ValueRO.Value);
+            }
+
+            ecb.Playback(s.EntityManager);
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ServerOnly\ServerInputDebugState.cs ===== 
+﻿// Assets/Scripts/ServerOnly/ServerInputLogSystem.cs
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using ECSPlayerInput = Game.Shared.Authoring.PlayerInput;
+using Game.Shared.Util;
+
+namespace Game.Server
+{
+    public struct ServerInputDebugState : IComponentData
+    {
+        public double NextLogTime;
+    }
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
+    public partial struct ServerInputLogSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            state.EntityManager.CreateSingleton(new ServerInputDebugState { NextLogTime = 0 });
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            double time = SystemAPI.Time.ElapsedTime;
+            ref var sdbg = ref SystemAPI.GetSingletonRW<ServerInputDebugState>().ValueRW;
+
+            if (time < sdbg.NextLogTime) return;
+            sdbg.NextLogTime = time + 1.5;
+
+            foreach (var (inp, owner) in SystemAPI.Query<RefRO<ECSPlayerInput>, RefRO<GhostOwner>>())
+            {
+                float h = inp.ValueRO.Horizontal;
+                float v = inp.ValueRO.Vertical;
+                bool j = inp.ValueRO.Jump.IsSet;
+                if (Mathf.Abs(h) > 0.01f || Mathf.Abs(v) > 0.01f || j)
+                {
+                    state.LogInfo("Input", "netId={0} h={1:0.00} v={2:0.00} j={3}", owner.ValueRO.NetworkId, h, v, j ? 1 : 0);
+                    break;
+                }
+            }
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ServerOnly\ServerLogOnConnectSystem.cs ===== 
+// Assets/Scripts/ServerOnly/ServerLogOnConnectSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Util;
+
+namespace Game.Server
+{
+    public struct ConnectionSeenTag : IComponentData {}
+    public struct InGameLoggedTag : IComponentData {}
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ServerLogOnConnectSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState state)
+        {
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            foreach (var (conn, e) in SystemAPI
+                         .Query<RefRO<NetworkStreamConnection>>()
+                         .WithNone<ConnectionSeenTag>()
+                         .WithEntityAccess())
+            {
+                state.LogInfo("Conn", "New connection entity {0} (waiting for NetworkId/handshake)", e.Index);
+                ecb.AddComponent<ConnectionSeenTag>(e);
+            }
+            ecb.Playback(state.EntityManager);
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ServerOnly\ServerLogOnInGameSystem.cs ===== 
+﻿// Assets/Scripts/ServerOnly/ServerLogOnInGameSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Util;
+
+namespace Game.Server
+{
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [UpdateAfter(typeof(ServerLogOnConnectSystem))]
+    public partial struct ServerLogOnInGameSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState state)
+        {
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            foreach (var (netId, e) in SystemAPI
+                         .Query<RefRO<NetworkId>>()
+                         .WithAll<NetworkStreamInGame>()
+                         .WithNone<InGameLoggedTag>()
+                         .WithEntityAccess())
+            {
+                state.LogInfo("Conn", "Connection InGame: netId={0}", netId.ValueRO.Value);
+                ecb.AddComponent<InGameLoggedTag>(e);
+            }
+            ecb.Playback(state.EntityManager);
+        }
+    }
+} 
+ 
+===== FILE: Scripts\ServerOnly\ServerSpawnPlayerOnInGameSystem.cs ===== 
+﻿// Assets/Scripts/ServerOnly/ServerSpawnPlayerOnInGameSystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Authoring;
+using Game.Shared.Util;
+
+namespace Game.Server
+{
+    public struct SpawnedPlayer : IComponentData
+    {
+        public Entity PlayerEntity;
+    }
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ServerSpawnPlayerOnInGameSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState state)
+        {
+            if (!SystemAPI.TryGetSingleton<PlayerSpawner>(out var spawner))
+                return;
+
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+            foreach (var (netId, e) in SystemAPI.Query<RefRO<NetworkId>>()
+                         .WithAll<NetworkStreamInGame>()
+                         .WithNone<SpawnedPlayer>()
+                         .WithEntityAccess())
+            {
+                var player = state.EntityManager.Instantiate(spawner.PlayerPrefab);
+                state.EntityManager.SetComponentData(player, new GhostOwner { NetworkId = netId.ValueRO.Value });
+
+                ecb.AddComponent(e, new SpawnedPlayer { PlayerEntity = player });
+
+                state.LogInfo("Spawn", "Spawned player ghost for netId={0}", netId.ValueRO.Value);
+            }
+
+            ecb.Playback(state.EntityManager);
+        }
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Authoring\GhostNameBaker.cs ===== 
+﻿using Unity.Collections;
+using Unity.Entities;
+
+namespace Game.Shared.Authoring
+{
+    // Wird am gebackenen Prefab hängen und den Namen tragen
+    public struct GhostName : IComponentData
+    {
+        public FixedString64Bytes Value;
+    }
+
+    // Einfacher Marker, den du am Ghost-Prefab anheftest
+
+    // Baker läuft, sobald das Prefab den Marker hat
+    public class GhostNameBaker : Baker<GhostNameMarker>
+    {
+        public override void Bake(GhostNameMarker a)
+        {
+            var e = GetEntity(TransformUsageFlags.Dynamic);
+            FixedString64Bytes name = !string.IsNullOrEmpty(a.gameObject.name)
+                ? (FixedString64Bytes)a.gameObject.name
+                : (FixedString64Bytes)"Ghost";
+            AddComponent(e, new GhostName { Value = name });
+        }
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Authoring\GhostNameMarker.cs ===== 
+﻿using UnityEngine;
+
+namespace Game.Shared.Authoring
+{
+    public class GhostNameMarker : MonoBehaviour {}
+} 
+ 
+===== FILE: Scripts\Shared\Authoring\GhostRegistryAuthoring.cs ===== 
+using Unity.Entities;
+using UnityEngine;
+
+namespace Game.Shared.Authoring
+{
+    public class GhostRegistryAuthoring : MonoBehaviour
+    {
+        public GameObject[] Prefabs; // z.B. Assets/Resources/Ghosts/Player.prefab
+    }
+
+    public struct GhostRegistry : IComponentData {}
+    public struct GhostRegistryEntry : IBufferElementData { public Entity Prefab; }
+
+    public class GhostRegistryBaker : Baker<GhostRegistryAuthoring>
+    {
+        public override void Bake(GhostRegistryAuthoring a)
+        {
+            var e = GetEntity(TransformUsageFlags.None);
+            AddComponent<GhostRegistry>(e);
+            var buf = AddBuffer<GhostRegistryEntry>(e);
+
+            if (a.Prefabs != null)
+            {
+                foreach (var go in a.Prefabs)
+                {
+                    if (go == null) continue;
+                    var ent = GetEntity(go, TransformUsageFlags.Dynamic);
+                    buf.Add(new GhostRegistryEntry { Prefab = ent });
+                }
+            }
+        }
+    }
+}
+ 
+ 
+===== FILE: Scripts\Shared\Authoring\PlayerAuthoring.cs ===== 
+﻿using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using Unity.Transforms;
+
+namespace Game.Shared.Authoring
+{
+    public struct PlayerTag : IComponentData {}
+    public struct MoveSpeed : IComponentData { public float Value; }
+
+    public struct PlayerInput : IInputComponentData
+    {
+        public float Horizontal;
+        public float Vertical;
+        public InputEvent Jump;
+    }
+
+    [DisallowMultipleComponent]
+    public class PlayerAuthoring : MonoBehaviour
+    {
+        [Min(0)] public float Speed = 7f;
+
+        // Wichtig: Unity.Entities.Hybrid als Assembly-Reference, und using Unity.Entities oben!
+        class Baker : Unity.Entities.Baker<PlayerAuthoring>
+        {
+            public override void Bake(PlayerAuthoring a)
+            {
+                var e = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponent<PlayerTag>(e);
+                AddComponent(e, new MoveSpeed { Value = a.Speed });
+                AddComponent<PlayerInput>(e);
+            }
+        }
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Authoring\PlayerSpawnerAuthoring.cs ===== 
+﻿using Unity.Entities;
+using UnityEngine;
+
+namespace Game.Shared.Authoring
+{
+    public struct PlayerSpawner : IComponentData
+    {
+        public Entity PlayerPrefab;
+    }
+
+    [DisallowMultipleComponent]
+    public class PlayerSpawnerAuthoring : MonoBehaviour
+    {
+        public GameObject PlayerPrefab;
+
+        class Baker : Unity.Entities.Baker<PlayerSpawnerAuthoring>
+        {
+            public override void Bake(PlayerSpawnerAuthoring a)
+            {
+                var e = GetEntity(TransformUsageFlags.None);
+                AddComponent(e, new PlayerSpawner {
+                    PlayerPrefab = GetEntity(a.PlayerPrefab, TransformUsageFlags.Dynamic)
+                });
+            }
+        }
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Config\NetGameSettings.cs ===== 
+// Assets/Scripts/Shared/Config/NetGameSettings.cs
+using UnityEngine;
+
+namespace Game.Shared.Config
+{
+    public enum EditorPlayProfile
+    {
+        Client,
+        DedicatedServer,
+        DedicatedLocalServer
+    }
+
+    public enum RunMode
+    {
+        AutoDetect,
+        Client,
+        Server,
+        Listen
+    }
+
+    [CreateAssetMenu(menuName = "Bastionfall/NetGameSettings", fileName = "NetGameSettings")]
+    public class NetGameSettings : ScriptableObject
+    {
+        [Header("Editor")]
+        public EditorPlayProfile PlayProfile = EditorPlayProfile.Client;
+
+        [Tooltip("Nur Editor-Hinweis: Wenn aktiv, setzt der Inspector die NetCode-PlayTools auf 'Client'.")]
+        public bool ForceClientPlayType = true;
+
+        [Header("Network")]
+        public string ConnectAddress = "127.0.0.1";
+        public ushort Port = 7979;
+
+        [Header("Server Only")]
+        public bool DespawnOnDisconnect = true;
+
+        [Header("Runtime Defaults (non-Editor)")]
+        public RunMode PlayerRunMode = RunMode.Client;
+
+        [Tooltip("Bei AutoDetect: Lokale Ziele -> ListenServer statt Client.")]
+        public bool PreferListenWhenLocal = true;
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Gameplay\PlayerMovementSystem.cs ===== 
+﻿// Assets/Scripts/Shared/Gameplay/PlayerMovementSystems.cs
+using Unity.Burst;
+using Unity.Entities;
+using Unity.Mathematics;
+using Unity.NetCode;
+using Unity.Transforms;
+using UnityEngine;
+using Game.Shared.Authoring;
+
+namespace Game.Shared.Gameplay
+{
+    // SERVER: autoritativ
+    [BurstCompile]
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    public partial struct PlayerMovementServerSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState s)
+        {
+            float dt = SystemAPI.Time.DeltaTime;
+            foreach (var (lt, speed, input) in SystemAPI
+                         .Query<RefRW<LocalTransform>, RefRO<MoveSpeed>, RefRO<PlayerInput>>()
+                         .WithAll<PlayerTag>())
+            {
+                float2 dir = math.normalizesafe(new float2(input.ValueRO.Horizontal, input.ValueRO.Vertical));
+                var t = lt.ValueRO;
+                t.Position += new float3(dir.x, 0, dir.y) * speed.ValueRO.Value * dt;
+                lt.ValueRW = t;
+            }
+        }
+    }
+
+    [BurstCompile]
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
+    public partial struct PlayerMovementPredictedSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState s)
+        {
+            float dt = SystemAPI.Time.DeltaTime;
+
+            foreach (var (lt, speed, input) in SystemAPI
+                         .Query<RefRW<LocalTransform>, RefRO<MoveSpeed>, RefRO<PlayerInput>>()
+                         .WithAll<PlayerTag, PredictedGhost>()) // nur predicted (lokaler Owner)
+            {
+                float2 dir = math.normalizesafe(new float2(input.ValueRO.Horizontal, input.ValueRO.Vertical));
+                var t = lt.ValueRO;
+                t.Position += new float3(dir.x, 0, dir.y) * speed.ValueRO.Value * dt;
+                lt.ValueRW = t;
+            }
+        }
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Net\GhostBootstrap.cs ===== 
+﻿using System.Collections.Generic;
+using UnityEngine;
+
+namespace Unity.NetCode
+{
+    public static class GhostBootstrap
+    {
+        public static bool DidRegister;
+
+        public static void RegisterClientServerGhostPrefabs(List<GameObject> prefabs)
+        {
+            DidRegister = true;
+            var player = Resources.Load<GameObject>("Ghosts/Player");
+            if (player != null)
+            {
+                Debug.Log("[GhostBootstrap] Registered ghost prefab: Ghosts/Player");
+                prefabs.Add(player);
+            }
+            else
+            {
+                Debug.LogWarning("[GhostBootstrap] Resources/Ghosts/Player.prefab not found!");
+            }
+        }
+    }
+}
+ 
+ 
+===== FILE: Scripts\Shared\Net\GoInGameRpc.cs ===== 
+﻿using Unity.Entities;
+using Unity.NetCode;
+
+namespace Game.Shared.Net   // <- WICHTIG: exakt dieser Namespace
+{
+    public struct GoInGameRpc : IRpcCommand
+    {
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Net\MultiplayerBootstrap.cs ===== 
+﻿// Assets/Scripts/Shared/Net/MultiplayerBootstrap.cs
+using System;
+using System.Linq;
+using System.Net;
+using System.Reflection;
+using Unity.NetCode;
+using Unity.Networking.Transport;
+using UnityEngine;
+using UnityEngine.Scripting; // Preserve
+using Game.Shared.Config;
+using Game.Shared.Util;
+
+namespace Game.Shared.Net
+{
+    [Preserve]
+    public class MultiplayerBootstrap : ClientServerBootstrap
+    {
+        // Frühester Marker, um zu sehen, ob dieser Bootstrap im Player-Build vorhanden ist.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
+        static void EarlyMarker() => Debug.Log("[Bootstrap] Discovered MultiplayerBootstrap (BeforeSplashScreen)");
+
+        public override bool Initialize(string defaultWorldName)
+        {
+            Debug.Log("[Bootstrap] Initialize() entered");
+
+            var s = Resources.Load<NetGameSettings>("NetGameSettings");
+
+            // Defaults aus Settings
+            string address = s && !string.IsNullOrWhiteSpace(s.ConnectAddress) ? s.ConnectAddress.Trim() : "127.0.0.1";
+            ushort port    = s && s.Port != 0 ? s.Port : (ushort)7979;
+            var    mode    = s ? s.PlayerRunMode : RunMode.Client;
+            bool   preferListenWhenLocal = s ? s.PreferListenWhenLocal : true;
+
+#if UNITY_EDITOR
+            if (s)
+            {
+                switch (s.PlayProfile)
+                {
+                    case EditorPlayProfile.DedicatedServer:
+                        mode = RunMode.Server;
+                        break;
+                    case EditorPlayProfile.DedicatedLocalServer:
+                        mode = RunMode.Server; address = "127.0.0.1";
+                        break;
+                    default:
+                        mode = RunMode.Client;
+                        break;
+                }
+            }
+#endif
+            // CLI-Overrides + Fallback über Environment (falls NetCode.CommandLine nicht greift)
+            if (CommandLine.TryGetString("mode", out var m1) && !string.IsNullOrWhiteSpace(m1)) mode = ParseMode(m1);
+            else if (TryGetArgEnv("mode", out var m2)) mode = ParseMode(m2);
+
+            if (CommandLine.TryGetString("address", out var a1) && !string.IsNullOrWhiteSpace(a1)) address = a1.Trim();
+            else if (TryGetArgEnv("address", out var a2)) address = a2.Trim();
+
+            if (CommandLine.TryGetUShort("port", out var p1) && p1 != 0) port = p1;
+            else if (TryGetArgEnv("port", out var p2) && ushort.TryParse(p2, out var p3) && p3 != 0) port = p3;
+
+            ExtractPortFromAddressSafely(ref address, ref port);
+            if (port == 0) { port = 7979; Debug.LogWarning("[Bootstrap] Port was 0 – fallback=7979"); }
+
+#if !UNITY_EDITOR && !UNITY_SERVER
+            if (mode == RunMode.AutoDetect)
+            {
+                bool isLocal = IsLoopbackOrPrivate(address);
+                mode = (isLocal && preferListenWhenLocal) ? RunMode.Listen : RunMode.Client;
+            }
+#endif
+
+            // Nur im Editor versuchen, RequestedPlayType zu setzen
+#if UNITY_EDITOR
+            TrySetRequestedPlayType(mode);
+#endif
+
+            AutoConnectPort = port;
+            switch (mode)
+            {
+                case RunMode.Listen:
+                    DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4.WithPort(port);
+                    DefaultListenAddress  = NetworkEndpoint.AnyIpv4.WithPort(port);
+                    break;
+
+                case RunMode.Client:
+                    DefaultConnectAddress = SafeParse(address, port);
+                    DefaultListenAddress  = NetworkEndpoint.AnyIpv4.WithPort(port);
+                    break;
+
+                case RunMode.Server:
+                default:
+                    DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4.WithPort(port); // irrelevant für Server
+                    DefaultListenAddress  = NetworkEndpoint.AnyIpv4.WithPort(port);
+                    break;
+            }
+
+            // Doppelte Sicherung
+            if (DefaultConnectAddress.Port == 0 && (mode == RunMode.Client || mode == RunMode.Listen))
+            {
+                DefaultConnectAddress = SafeParse(address, port);
+                AutoConnectPort = port;
+                Debug.LogWarning($"[Bootstrap] Connect had port=0 – fixed -> {address}:{port}");
+            }
+
+            Debug.Log($"[Bootstrap] Mode={mode} Address={address} Port={port}");
+            Debug.Log($"[Bootstrap] Connect={DefaultConnectAddress} Listen={DefaultListenAddress} AutoConnectPort={AutoConnectPort}");
+
+            switch (mode)
+            {
+                case RunMode.Server:
+                    CreateServerWorld(defaultWorldName);
+                    return true;
+                case RunMode.Client:
+                    CreateClientWorld(defaultWorldName);
+                    return true;
+                case RunMode.Listen:
+                    CreateServerWorld(defaultWorldName + "-Server");
+                    CreateClientWorld(defaultWorldName + "-Client");
+                    return true;
+                default:
+                    CreateClientWorld(defaultWorldName);
+                    return true;
+            }
+        }
+
+        // ---------- helpers ----------
+        static RunMode ParseMode(string m) => m.ToLowerInvariant() switch
+        {
+            "server" => RunMode.Server, "client" => RunMode.Client,
+            "listen" => RunMode.Listen, "auto" => RunMode.AutoDetect, _ => RunMode.Client
+        };
+
+        static bool TryGetArgEnv(string key, out string value)
+        {
+            var args = Environment.GetCommandLineArgs();
+            for (int i=0;i<args.Length-1;i++)
+                if (string.Equals(args[i].TrimStart('-','/'), key, StringComparison.OrdinalIgnoreCase))
+                { value = args[i+1]; return true; }
+            value = null; return false;
+        }
+
+        static void ExtractPortFromAddressSafely(ref string address, ref ushort port)
+        {
+            var idx = address.LastIndexOf(':');
+            if (idx > 0 && idx == address.IndexOf(':'))
+            {
+                var right = address[(idx+1)..];
+                if (ushort.TryParse(right, out var p) && p != 0)
+                { address = address[..idx]; port = p; }
+            }
+        }
+
+        static bool IsLoopbackOrPrivate(string host)
+        {
+            if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)) return true;
+            if (IPAddress.TryParse(host, out var ip))
+            {
+                var b = ip.GetAddressBytes();
+                if (b.Length==4)
+                { if (b[0]==127 || b[0]==10 || (b[0]==172 && b[1]>=16 && b[1]<=31) || (b[0]==192 && b[1]==168)) return true; }
+            }
+            return false;
+        }
+
+        static NetworkEndpoint SafeParse(string host, ushort port)
+        {
+            try { return NetworkEndpoint.Parse(host, port); }
+            catch
+            {
+                Debug.LogWarning($"[Bootstrap] Parse failed for '{host}:{port}', using loopback.");
+                return NetworkEndpoint.LoopbackIpv4.WithPort(port==0 ? (ushort)7979 : port);
+            }
+        }
+
+#if UNITY_EDITOR
+        static void TrySetRequestedPlayType(RunMode mode)
+        {
+            try
+            {
+                var t = typeof(ClientServerBootstrap);
+                var prop = t.GetProperty("RequestedPlayType", BindingFlags.Public | BindingFlags.Static);
+                if (prop != null && prop.CanWrite)
+                {
+                    string want = mode switch
+                    {
+                        RunMode.Listen => "ClientAndServer",
+                        RunMode.Server => "Server",
+                        _ => "Client"
+                    };
+                    var enumVal = Enum.Parse(prop.PropertyType, want);
+                    prop.SetValue(null, enumVal);
+                }
+            } catch { /* ignore in editor */ }
+        }
+#endif
+    }
+}
+ 
+ 
+===== FILE: Scripts\Shared\Net\RegisterGhostsFromRegistrySystem.cs ===== 
+﻿// Assets/Scripts/Shared/Net/RegisterGhostsFromRegistrySystem.cs
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Authoring;
+using Game.Shared.Util;
+
+namespace Game.Shared.Net
+{
+    public struct GhostsRegisteredTag : IComponentData {}
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct RegisterGhostsFromRegistrySystem : ISystem
+    {
+        public void OnCreate(ref SystemState s)
+        {
+            s.RequireForUpdate<GhostCollection>();
+            s.RequireForUpdate<GhostRegistry>();
+        }
+
+        public void OnUpdate(ref SystemState s)
+        {
+            var regEnt = SystemAPI.GetSingletonEntity<GhostRegistry>();
+            var list   = s.EntityManager.GetBuffer<GhostRegistryEntry>(regEnt);
+
+            s.LogInfo("Ghosts", "Registering {0} ghost prefab(s) from registry...", list.Length);
+
+            foreach (var entry in list)
+            {
+                FixedString64Bytes name =
+                    s.EntityManager.HasComponent<GhostName>(entry.Prefab)
+                        ? s.EntityManager.GetComponentData<GhostName>(entry.Prefab).Value
+                        : (FixedString64Bytes)"Ghost";
+
+                s.LogInfo("Ghosts", "Register '{0}'", name);
+
+                var cfg = new GhostPrefabCreation.Config { Name = name }; // wichtig: GhostName
+                GhostPrefabCreation.ConvertToGhostPrefab(s.EntityManager, entry.Prefab, cfg);
+            }
+
+            if (!SystemAPI.HasSingleton<GhostsRegisteredTag>())
+            {
+                var tag = s.EntityManager.CreateEntity();
+                s.EntityManager.AddComponent<GhostsRegisteredTag>(tag);
+            }
+
+            s.Enabled = false;
+        }
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Net\ServerHelloRpc.cs ===== 
+﻿using Unity.Entities;
+using Unity.NetCode;
+
+namespace Game.Shared.Net
+{
+    // Muss ein struct (unmanaged) sein
+    public struct ServerHelloRpc : IRpcCommand {}
+} 
+ 
+===== FILE: Scripts\Shared\Util\BFFileLogger.cs ===== 
+﻿using System;
+using System.IO;
+using System.Text;
+using System.Threading;
+using UnityEngine;
+
+public static class BFFileLogger
+{
+    static readonly object Gate = new object();
+    static StreamWriter _writer;
+    static string _logPath;
+    static string _prefix;
+    static bool _started;
+
+    // Reset bei (Re)Load/Enter Play Mode – wichtig für "Disable Domain Reload"
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics()
+    {
+        _writer = null;
+        _logPath = null;
+        _prefix = null;
+        _started = false;
+    }
+
+    // Läuft früh in Player/Headless-Builds; im Editor nur, wenn Domain reloadet
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
+    static void AutoStart_BeforeSplash() => StartIfNeeded();
+
+    public static void StartIfNeeded(string prefixOverride = null)
+    {
+        if (_started) return;
+
+        try
+        {
+            // Prefix finden: expliziter Override > Env > PlayerPrefs > -logprefix > -mode > Fallback
+            _prefix = prefixOverride
+                   ?? Environment.GetEnvironmentVariable("BF_LOGPREFIX")
+                   ?? PlayerPrefs.GetString("BF_LogPrefix", null)
+                   ?? GetArg("-logprefix");
+
+            if (string.IsNullOrEmpty(_prefix))
+            {
+                var mode = GetArg("-mode")?.ToLowerInvariant();
+                _prefix = mode switch {
+                    "server" => "server",
+                    "client" => "client",
+                    "listen" => "listen",
+                    _ => (Application.isBatchMode ? "headless" : "play")
+                };
+            }
+
+            var logDir = GetArg("-logdir");
+            if (string.IsNullOrEmpty(logDir))
+                logDir = Path.Combine(Application.persistentDataPath, "Logs");
+
+            Directory.CreateDirectory(logDir);
+            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            _logPath = Path.Combine(logDir, $"{ts}_{_prefix}.log");
+
+            _writer = new StreamWriter(new FileStream(_logPath, FileMode.Create, FileAccess.Write, FileShare.Read))
+            { AutoFlush = true, NewLine = "\n" };
+
+            WriteHeader();
+
+            Application.logMessageReceivedThreaded += HandleLog;
+
+            // Stacktrace-Policy
+            Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
+            Application.SetStackTraceLogType(LogType.Warning, StackTraceLogType.ScriptOnly);
+            Application.SetStackTraceLogType(LogType.Error, StackTraceLogType.Full);
+            Application.SetStackTraceLogType(LogType.Assert, StackTraceLogType.Full);
+            Application.SetStackTraceLogType(LogType.Exception, StackTraceLogType.Full);
+
+            // Sichtbarer Hinweis mit Pfad
+            Debug.Log($"[BFFileLogger] Writing logs to: {_logPath}");
+
+            // Sauber schließen (auch im Editor-Spielmodus)
+            var go = new GameObject("BFFileLogger_Sink") { hideFlags = HideFlags.HideAndDontSave };
+            go.AddComponent<BFFileLoggerSink>();
+            UnityEngine.Object.DontDestroyOnLoad(go);
+
+            _started = true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[BFFileLogger] Init failed: {e}");
+        }
+    }
+
+    public static void Shutdown()
+    {
+        lock (Gate)
+        {
+            if (_writer != null)
+            {
+                _writer.Flush();
+                _writer.Dispose();
+                _writer = null;
+            }
+            _started = false;
+        }
+    }
+
+    static void HandleLog(string condition, string stackTrace, LogType type)
+    {
+        if (_writer == null) return;
+
+        var sb = new StringBuilder(512);
+        sb.Append(DateTime.Now.ToString("HH:mm:ss.fff"));
+        sb.Append(" [").Append(Thread.CurrentThread.ManagedThreadId).Append("] ");
+        sb.Append('[').Append(type).Append("] ").Append(condition);
+
+        if (!string.IsNullOrEmpty(stackTrace) &&
+            (type == LogType.Error || type == LogType.Assert || type == LogType.Exception))
+        {
+            sb.Append("\n").Append(stackTrace.TrimEnd());
+        }
+
+        lock (Gate) _writer.WriteLine(sb.ToString());
+    }
+
+    static void WriteHeader()
+    {
+        var args = Environment.GetCommandLineArgs();
+        var role = GetArg("-mode") ?? (Application.isBatchMode ? "Server/Headless?" : "Editor/Player");
+        var header =
+$@"# === Log Start {DateTime.Now:O} ===
+# Role={role}   BatchMode={Application.isBatchMode}
+# Unity={Application.unityVersion}   Product={Application.productName} {Application.version}
+# Platform={Application.platform}
+# LogFile={_logPath}
+# CmdLine={string.Join(" ", args)}
+# =================================";
+        lock (Gate) _writer.WriteLine(header);
+    }
+
+    static string GetArg(string name)
+    {
+        var args = Environment.GetCommandLineArgs();
+        for (int i = 0; i < args.Length; i++)
+            if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                return args[i + 1];
+        return null;
+    }
+}
+
+// sorgt fürs saubere Schließen
+public class BFFileLoggerSink : MonoBehaviour
+{
+    void OnApplicationQuit() => BFFileLogger.Shutdown();
+    void OnDestroy() => BFFileLogger.Shutdown();
+}
+ 
+ 
+===== FILE: Scripts\Shared\Util\BFLog.cs ===== 
+﻿using System.Runtime.CompilerServices;
+using Unity.Entities;
+using UnityEngine;
+
+namespace Game.Shared.Util
+{
+    public static class BFLog
+    {
+        // Direkt ohne SystemState (z.B. in MonoBehaviours)
+        public static void Info  (string cat, string msg) => Debug.Log($"[{cat}] {msg}");
+        public static void Warn  (string cat, string msg) => Debug.LogWarning($"[{cat}] {msg}");
+        public static void Error (string cat, string msg) => Debug.LogError($"[{cat}] {msg}");
+
+        // Mit World-Name (für DOTS Systems)
+        public static void Info(ref SystemState s, string cat, string msg)
+            => Debug.Log($"[{s.WorldUnmanaged.Name}][{cat}] {msg}");
+        public static void Warn(ref SystemState s, string cat, string msg)
+            => Debug.LogWarning($"[{s.WorldUnmanaged.Name}][{cat}] {msg}");
+        public static void Error(ref SystemState s, string cat, string msg)
+            => Debug.LogError($"[{s.WorldUnmanaged.Name}][{cat}] {msg}");
+
+        // „Once“-Logger pro Key, um Spam zu vermeiden
+        static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _once 
+            = new();
+        public static void InfoOnce(string key, string cat, string msg)
+        {
+            if (_once.TryAdd(key, 1)) Debug.Log($"[{cat}] {msg}");
+        }
+    }
+
+    // Komfort: Extension für Systems mit Format-String
+    public static class BFLogExtensions
+    {
+        public static void LogInfo(this ref SystemState s, string cat, string fmt, params object[] args)
+            => Debug.Log($"[{s.WorldUnmanaged.Name}][{cat}] {string.Format(fmt, args)}");
+        public static void LogWarn(this ref SystemState s, string cat, string fmt, params object[] args)
+            => Debug.LogWarning($"[{s.WorldUnmanaged.Name}][{cat}] {string.Format(fmt, args)}");
+        public static void LogError(this ref SystemState s, string cat, string fmt, params object[] args)
+            => Debug.LogError($"[{s.WorldUnmanaged.Name}][{cat}] {string.Format(fmt, args)}");
+    }
+}
+ 
+ 
+===== FILE: Scripts\Shared\Util\CommandLine.cs ===== 
+using System;
+
+namespace Game.Shared.Util
+{
+    public static class CommandLine
+    {
+        public static bool TryGetString(string key, out string value)
+        {
+            value = null;
+            var args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i].Equals("-" + key, StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    value = args[i + 1];
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static bool TryGetUShort(string key, out ushort value)
+        {
+            value = 0;
+            if (TryGetString(key, out var s) && ushort.TryParse(s, out var p))
+            {
+                value = p;
+                return true;
+            }
+            return false;
+        }
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Util\EnsureRunInBackground.cs ===== 
+﻿// Assets/Scripts/Shared/Util/EnsureRunInBackground.cs
+using UnityEngine;
+
+namespace Game.Shared.Util
+{
+    public static class EnsureRunInBackground
+    {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
+        static void Apply()
+        {
+            Application.runInBackground = true;
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = -1;
+        }
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Util\LogSink.cs ===== 
+﻿// Assets/Scripts/Shared/Util/LogSink.cs
+using System;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using UnityEngine;
+
+namespace Game.Shared.Util
+{
+    /// Log-Datei mit Zeitstempel:
+    ///   YYYYMMDD_HHMMSS_server.log / ..._client.log
+    /// CLI:
+    ///   -logdir <dir>   (Ordner, Standard: ./logs)
+    ///   -logprefix <p>  ("server" oder "client", Standard: aus BatchMode abgeleitet)
+    ///   -nolog          (deaktiviert File-Logging)
+    public static class LogSink
+    {
+        static StreamWriter _writer;
+        static readonly object _lock = new();
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void Init() => StartNewFileInternal(null);
+
+        // --- Editor helper API (wird vom Editor-Bridge aufgerufen) ------------
+        public static void RestartForEditor(string prefixOverride = null)
+        {
+            Close();
+            StartNewFileInternal(prefixOverride);
+        }
+
+        public static void StopForEditor() => Close();
+
+        // ----------------------------------------------------------------------
+        static void StartNewFileInternal(string forcedPrefix)
+        {
+            if (HasArg("nolog")) { Debug.Log("[LogSink] disabled via -nolog"); return; }
+
+            try
+            {
+                var dir = Arg("logdir") ?? "logs";
+                if (!Path.IsPathRooted(dir))
+                {
+                    var baseDir = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                    dir = Path.GetFullPath(Path.Combine(baseDir, dir));
+                }
+                Directory.CreateDirectory(dir);
+
+                var prefix = forcedPrefix ?? Arg("logprefix") ?? (Application.isBatchMode ? "server" : "client");
+                var file = $"{DateTime.Now:yyyyMMdd_HHmmss}_{prefix}.log";
+                var path = Path.Combine(dir, file);
+
+                var fs = OpenWithRetry(path);
+                _writer = new StreamWriter(fs, new UTF8Encoding(false)) { AutoFlush = true };
+
+                Header(prefix, path);
+                Application.logMessageReceivedThreaded += Handle;
+                Application.quitting += Close;
+                AppDomain.CurrentDomain.ProcessExit += (_, __) => Close();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[LogSink] init failed: {e}");
+            }
+        }
+
+        static FileStream OpenWithRetry(string path, int retries = 6, int backoffMs = 200)
+        {
+            for (int i = 0; i < retries; i++)
+            {
+                try
+                {
+                    return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 4096, FileOptions.SequentialScan);
+                }
+                catch (IOException) { Thread.Sleep(backoffMs); }
+                catch (UnauthorizedAccessException) { Thread.Sleep(backoffMs); }
+            }
+            var fallback = Path.Combine(Path.GetDirectoryName(path) ?? ".", $"{Path.GetFileNameWithoutExtension(path)}_alt{Path.GetExtension(path)}");
+            return new FileStream(fallback, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+        }
+
+        static void Header(string role, string path)
+        {
+            Write($"# === Log Start {DateTime.Now:O} ===");
+            Write($"# Role={role}   BatchMode={Application.isBatchMode}");
+            Write($"# Unity={Application.unityVersion}   Product={Application.productName} {Application.version}");
+            Write($"# Platform={Application.platform}");
+            Write($"# LogFile={path}");
+            Write($"# CmdLine={Environment.CommandLine}");
+            Write("# =================================");
+        }
+
+        static void Handle(string condition, string stack, LogType type)
+        {
+            var stamp = $"{DateTime.Now:HH:mm:ss.fff} (+{Time.realtimeSinceStartup,7:0.000}s)";
+            var lvl = type.ToString().ToUpperInvariant();
+            var tid = System.Threading.Thread.CurrentThread.ManagedThreadId;
+
+            Write($"{stamp} [T{tid}] [{lvl}] {condition}");
+            if ((type == LogType.Error || type == LogType.Exception || type == LogType.Assert) && !string.IsNullOrEmpty(stack))
+                Write(stack);
+        }
+
+        static void Write(string line)
+        {
+            lock (_lock) _writer?.WriteLine(line);
+        }
+
+        static void Close()
+        {
+            try
+            {
+                Application.logMessageReceivedThreaded -= Handle;
+                lock (_lock) { _writer?.Flush(); _writer?.Dispose(); _writer = null; }
+            } catch { /* ignore */ }
+        }
+
+        static string Arg(string key)
+        {
+            var args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (string.Equals(args[i].TrimStart('-','/'), key, StringComparison.OrdinalIgnoreCase))
+                    return args[i + 1];
+            return null;
+        }
+        static bool HasArg(string key)
+        {
+            var args = Environment.GetCommandLineArgs();
+            return args.Any(a => string.Equals(a.TrimStart('-','/'), key, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+}
+ 
+ 
+===== FILE: Scripts\Shared\Util\LogSinkEditorBridge.cs ===== 
+﻿namespace Game.Shared.Util
+{
+    public class LogSinkEditorBridge
+    {
+        
+    }
+} 
+ 
+===== FILE: Scripts\Shared\Util\ServerSceneStripper.cs ===== 
+﻿using UnityEngine;
+
+namespace Game.Shared.Util
+{
+    public static class ServerSceneStripper
+    {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void StripForServer()
+        {
+            // Nur in echten Dedicated/Headless-Starts säubern
+            if (!Application.isBatchMode && SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
+                return;
+
+            // Kamera/Audio/Follow-Skripte entfernen, falls sie in der Szene sind
+            foreach (var cam in Object.FindObjectsOfType<Camera>())
+                Object.Destroy(cam);
+
+            foreach (var al in Object.FindObjectsOfType<AudioListener>())
+                Object.Destroy(al);
+
+            // Falls die Client-Komponente doch mitgebaut wurde, ebenfalls entfernen
+            var type = System.Type.GetType("Game.Client.FollowLocalPlayer, Game.Client");
+            if (type != null)
+            {
+                foreach (var c in Object.FindObjectsOfType(type, true))
+                    Object.Destroy((Object)c);
+            }
+        }
+    }
+}
+ 
+ 
+===== FILE: TutorialInfo\Scripts\Readme.cs ===== 
+﻿using System;
+using UnityEngine;
+
+public class Readme : ScriptableObject
+{
+    public Texture2D icon;
+    public string title;
+    public Section[] sections;
+    public bool loadedLayout;
+
+    [Serializable]
+    public class Section
+    {
+        public string heading, text, linkText, url;
+    }
+}
+ 
+ 
+===== FILE: TutorialInfo\Scripts\Editor\ReadmeEditor.cs ===== 
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEditor;
+using System;
+using System.IO;
+using System.Reflection;
+
+[CustomEditor(typeof(Readme))]
+[InitializeOnLoad]
+public class ReadmeEditor : Editor
+{
+    static string s_ShowedReadmeSessionStateName = "ReadmeEditor.showedReadme";
+    
+    static string s_ReadmeSourceDirectory = "Assets/TutorialInfo";
+
+    const float k_Space = 16f;
+
+    static ReadmeEditor()
+    {
+        EditorApplication.delayCall += SelectReadmeAutomatically;
+    }
+
+    static void RemoveTutorial()
+    {
+        if (EditorUtility.DisplayDialog("Remove Readme Assets",
+            
+            $"All contents under {s_ReadmeSourceDirectory} will be removed, are you sure you want to proceed?",
+            "Proceed",
+            "Cancel"))
+        {
+            if (Directory.Exists(s_ReadmeSourceDirectory))
+            {
+                FileUtil.DeleteFileOrDirectory(s_ReadmeSourceDirectory);
+                FileUtil.DeleteFileOrDirectory(s_ReadmeSourceDirectory + ".meta");
+            }
+            else
+            {
+                Debug.Log($"Could not find the Readme folder at {s_ReadmeSourceDirectory}");
+            }
+
+            var readmeAsset = SelectReadme();
+            if (readmeAsset != null)
+            {
+                var path = AssetDatabase.GetAssetPath(readmeAsset);
+                FileUtil.DeleteFileOrDirectory(path + ".meta");
+                FileUtil.DeleteFileOrDirectory(path);
+            }
+
+            AssetDatabase.Refresh();
+        }
+    }
+
+    static void SelectReadmeAutomatically()
+    {
+        if (!SessionState.GetBool(s_ShowedReadmeSessionStateName, false))
+        {
+            var readme = SelectReadme();
+            SessionState.SetBool(s_ShowedReadmeSessionStateName, true);
+
+            if (readme && !readme.loadedLayout)
+            {
+                LoadLayout();
+                readme.loadedLayout = true;
+            }
+        }
+    }
+
+    static void LoadLayout()
+    {
+        var assembly = typeof(EditorApplication).Assembly;
+        var windowLayoutType = assembly.GetType("UnityEditor.WindowLayout", true);
+        var method = windowLayoutType.GetMethod("LoadWindowLayout", BindingFlags.Public | BindingFlags.Static);
+        method.Invoke(null, new object[] { Path.Combine(Application.dataPath, "TutorialInfo/Layout.wlt"), false });
+    }
+
+    static Readme SelectReadme()
+    {
+        var ids = AssetDatabase.FindAssets("Readme t:Readme");
+        if (ids.Length == 1)
+        {
+            var readmeObject = AssetDatabase.LoadMainAssetAtPath(AssetDatabase.GUIDToAssetPath(ids[0]));
+
+            Selection.objects = new UnityEngine.Object[] { readmeObject };
+
+            return (Readme)readmeObject;
+        }
+        else
+        {
+            Debug.Log("Couldn't find a readme");
+            return null;
+        }
+    }
+
+    protected override void OnHeaderGUI()
+    {
+        var readme = (Readme)target;
+        Init();
+
+        var iconWidth = Mathf.Min(EditorGUIUtility.currentViewWidth / 3f - 20f, 128f);
+
+        GUILayout.BeginHorizontal("In BigTitle");
+        {
+            if (readme.icon != null)
+            {
+                GUILayout.Space(k_Space);
+                GUILayout.Label(readme.icon, GUILayout.Width(iconWidth), GUILayout.Height(iconWidth));
+            }
+            GUILayout.Space(k_Space);
+            GUILayout.BeginVertical();
+            {
+
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(readme.title, TitleStyle);
+                GUILayout.FlexibleSpace();
+            }
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+        }
+        GUILayout.EndHorizontal();
+    }
+
+    public override void OnInspectorGUI()
+    {
+        var readme = (Readme)target;
+        Init();
+
+        foreach (var section in readme.sections)
+        {
+            if (!string.IsNullOrEmpty(section.heading))
+            {
+                GUILayout.Label(section.heading, HeadingStyle);
+            }
+
+            if (!string.IsNullOrEmpty(section.text))
+            {
+                GUILayout.Label(section.text, BodyStyle);
+            }
+
+            if (!string.IsNullOrEmpty(section.linkText))
+            {
+                if (LinkLabel(new GUIContent(section.linkText)))
+                {
+                    Application.OpenURL(section.url);
+                }
+            }
+
+            GUILayout.Space(k_Space);
+        }
+
+        if (GUILayout.Button("Remove Readme Assets", ButtonStyle))
+        {
+            RemoveTutorial();
+        }
+    }
+
+    bool m_Initialized;
+
+    GUIStyle LinkStyle
+    {
+        get { return m_LinkStyle; }
+    }
+
+    [SerializeField]
+    GUIStyle m_LinkStyle;
+
+    GUIStyle TitleStyle
+    {
+        get { return m_TitleStyle; }
+    }
+
+    [SerializeField]
+    GUIStyle m_TitleStyle;
+
+    GUIStyle HeadingStyle
+    {
+        get { return m_HeadingStyle; }
+    }
+
+    [SerializeField]
+    GUIStyle m_HeadingStyle;
+
+    GUIStyle BodyStyle
+    {
+        get { return m_BodyStyle; }
+    }
+
+    [SerializeField]
+    GUIStyle m_BodyStyle;
+
+    GUIStyle ButtonStyle
+    {
+        get { return m_ButtonStyle; }
+    }
+
+    [SerializeField]
+    GUIStyle m_ButtonStyle;
+
+    void Init()
+    {
+        if (m_Initialized)
+            return;
+        m_BodyStyle = new GUIStyle(EditorStyles.label);
+        m_BodyStyle.wordWrap = true;
+        m_BodyStyle.fontSize = 14;
+        m_BodyStyle.richText = true;
+
+        m_TitleStyle = new GUIStyle(m_BodyStyle);
+        m_TitleStyle.fontSize = 26;
+
+        m_HeadingStyle = new GUIStyle(m_BodyStyle);
+        m_HeadingStyle.fontStyle = FontStyle.Bold;
+        m_HeadingStyle.fontSize = 18;
+
+        m_LinkStyle = new GUIStyle(m_BodyStyle);
+        m_LinkStyle.wordWrap = false;
+
+        // Match selection color which works nicely for both light and dark skins
+        m_LinkStyle.normal.textColor = new Color(0x00 / 255f, 0x78 / 255f, 0xDA / 255f, 1f);
+        m_LinkStyle.stretchWidth = false;
+
+        m_ButtonStyle = new GUIStyle(EditorStyles.miniButton);
+        m_ButtonStyle.fontStyle = FontStyle.Bold;
+
+        m_Initialized = true;
+    }
+
+    bool LinkLabel(GUIContent label, params GUILayoutOption[] options)
+    {
+        var position = GUILayoutUtility.GetRect(label, LinkStyle, options);
+
+        Handles.BeginGUI();
+        Handles.color = LinkStyle.normal.textColor;
+        Handles.DrawLine(new Vector3(position.xMin, position.yMax), new Vector3(position.xMax, position.yMax));
+        Handles.color = Color.white;
+        Handles.EndGUI();
+
+        EditorGUIUtility.AddCursorRect(position, MouseCursor.Link);
+
+        return GUI.Button(position, label, LinkStyle);
+    }
+}
+ 
+ 

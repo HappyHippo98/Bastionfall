@@ -2,43 +2,28 @@
 using UnityEditor;
 using UnityEngine;
 
-[InitializeOnLoad]
-public static class BFFileLoggerEditor
+namespace Game.Editor
 {
-    static BFFileLoggerEditor()
+    /// <summary>
+    /// Boots BFFileLogger inside the Editor and provides a menu to open the log folder.
+    /// </summary>
+    [InitializeOnLoad]
+    public static class BFFileLoggerEditor
     {
-        // Bei Enter Play Mode starten – auch ohne Domain Reload
-        EditorApplication.playModeStateChanged += state =>
+        static BFFileLoggerEditor()
         {
-            if (state == PlayModeStateChange.EnteredPlayMode)
-            {
-                // gewünschten Prefix in PlayerPrefs spiegeln (zur Laufzeit lesbar)
-                var pfx = EditorPrefs.GetString("BF_LogPrefix", "client"); // Wunsch: "client"
-                PlayerPrefs.SetString("BF_LogPrefix", pfx);
-                PlayerPrefs.Save();
+            // Default the prefix to "client" for editor play sessions.
+            Game.Shared.Util.BFFileLogger.SetPrefix("client");
+            Game.Shared.Util.BFFileLogger.StartIfNeeded();
+        }
 
-                BFFileLogger.StartIfNeeded(); // erstellt die Datei + schreibt den Pfad ins Console-Log
-            }
-            else if (state == PlayModeStateChange.ExitingPlayMode)
-            {
-                BFFileLogger.Shutdown();
-            }
-        };
-    }
-
-    [MenuItem("Bastionfall/Logs/Prefix/Client")]
-    static void SetClient() => EditorPrefs.SetString("BF_LogPrefix", "client");
-
-    [MenuItem("Bastionfall/Logs/Prefix/Server")]
-    static void SetServer() => EditorPrefs.SetString("BF_LogPrefix", "server");
-
-    [MenuItem("Bastionfall/Logs/Prefix/Play")]
-    static void SetPlay() => EditorPrefs.SetString("BF_LogPrefix", "play");
-
-    [MenuItem("Bastionfall/Logs/Open persistentDataPath")]
-    static void OpenFolder()
-    {
-        EditorUtility.RevealInFinder(System.IO.Path.Combine(Application.persistentDataPath, "Logs"));
+        [MenuItem("Bastionfall/Logs/Open Editor Log Folder", priority = 50)]
+        public static void OpenEditorLogFolder()
+        {
+            string baseDir = System.IO.Path.Combine(Application.persistentDataPath, "Logs", "Editor");
+            System.IO.Directory.CreateDirectory(baseDir);
+            EditorUtility.RevealInFinder(baseDir);
+        }
     }
 }
 #endif

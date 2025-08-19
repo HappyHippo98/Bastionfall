@@ -1,152 +1,177 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Text;
-using System.Threading;
 using UnityEngine;
 
-public static class BFFileLogger
+namespace Game.Shared.Util
 {
-    static readonly object Gate = new object();
-    static StreamWriter _writer;
-    static string _logPath;
-    static string _prefix;
-    static bool _started;
-
-    // Reset bei (Re)Load/Enter Play Mode – wichtig für "Disable Domain Reload"
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics()
+    /// <summary>
+    /// Single, unified file logger for Editor + Client + Server.
+    /// Usage:
+    ///  - In Editor, BFFileLoggerEditor boots this automatically.
+    ///  - In builds, pass -logdir <dir> and -logprefix <client|server|listen> (BuildAll already does).
+    ///  - Alternatively call BFFileLogger.StartIfNeeded() once on startup.
+    /// The logger writes to "<logdir>/<Role>/<timestamp>_<prefix>.log".
+    /// </summary>
+    public static class BFFileLogger
     {
-        _writer = null;
-        _logPath = null;
-        _prefix = null;
-        _started = false;
-    }
+        static readonly object _lock = new object();
+        static StreamWriter _writer;
+        static string _logFilePath;
+        static bool _started;
 
-    // Läuft früh in Player/Headless-Builds; im Editor nur, wenn Domain reloadet
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
-    static void AutoStart_BeforeSplash() => StartIfNeeded();
+        // PlayerPrefs key used by the Editor bootstrap to persist the desired prefix
+        const string PrefKeyPrefix = "BF_LogPrefix";
 
-    public static void StartIfNeeded(string prefixOverride = null)
-    {
-        if (_started) return;
-
-        try
+        /// <summary>Set a desired prefix for the file name (e.g. "client", "server"). Optional.</summary>
+        public static void SetPrefix(string prefix)
         {
-            // Prefix finden: expliziter Override > Env > PlayerPrefs > -logprefix > -mode > Fallback
-            _prefix = prefixOverride
-                   ?? Environment.GetEnvironmentVariable("BF_LOGPREFIX")
-                   ?? PlayerPrefs.GetString("BF_LogPrefix", null)
-                   ?? GetArg("-logprefix");
+            try { if (!string.IsNullOrEmpty(prefix)) PlayerPrefs.SetString(PrefKeyPrefix, prefix); }
+            catch { /* ignore in headless */ }
+        }
 
-            if (string.IsNullOrEmpty(_prefix))
-            {
-                var mode = GetArg("-mode")?.ToLowerInvariant();
-                _prefix = mode switch {
-                    "server" => "server",
-                    "client" => "client",
-                    "listen" => "listen",
-                    _ => (Application.isBatchMode ? "headless" : "play")
-                };
-            }
-
-            var logDir = GetArg("-logdir");
-            if (string.IsNullOrEmpty(logDir))
-                logDir = Path.Combine(Application.persistentDataPath, "Logs");
-
-            Directory.CreateDirectory(logDir);
-            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            _logPath = Path.Combine(logDir, $"{ts}_{_prefix}.log");
-
-            _writer = new StreamWriter(new FileStream(_logPath, FileMode.Create, FileAccess.Write, FileShare.Read))
-            { AutoFlush = true, NewLine = "\n" };
-
-            WriteHeader();
-
-            Application.logMessageReceivedThreaded += HandleLog;
-
-            // Stacktrace-Policy
-            Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
-            Application.SetStackTraceLogType(LogType.Warning, StackTraceLogType.ScriptOnly);
-            Application.SetStackTraceLogType(LogType.Error, StackTraceLogType.Full);
-            Application.SetStackTraceLogType(LogType.Assert, StackTraceLogType.Full);
-            Application.SetStackTraceLogType(LogType.Exception, StackTraceLogType.Full);
-
-            // Sichtbarer Hinweis mit Pfad
-            Debug.Log($"[BFFileLogger] Writing logs to: {_logPath}");
-
-            // Sauber schließen (auch im Editor-Spielmodus)
-            var go = new GameObject("BFFileLogger_Sink") { hideFlags = HideFlags.HideAndDontSave };
-            go.AddComponent<BFFileLoggerSink>();
-            UnityEngine.Object.DontDestroyOnLoad(go);
-
+        /// <summary>Start the logger once. Safe to call repeatedly.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
+        public static void StartIfNeeded()
+        {
+            if (_started) return;
             _started = true;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[BFFileLogger] Init failed: {e}");
-        }
-    }
 
-    public static void Shutdown()
-    {
-        lock (Gate)
-        {
-            if (_writer != null)
+            try
             {
-                _writer.Flush();
-                _writer.Dispose();
+                // 1) Base directory
+                string argLogDir = GetArgValue("-logdir");
+                string baseDir;
+                if (!string.IsNullOrEmpty(argLogDir))
+                {
+                    baseDir = argLogDir;
+                    // Relative path -> make it relative to the executable folder
+                    if (!Path.IsPathRooted(baseDir))
+                        baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, baseDir);
+                }
+                else
+                {
+                    baseDir = Path.Combine(Application.persistentDataPath, "Logs");
+                }
+
+                // 2) Role subfolder
+                string prefix = GetArgValue("-logprefix");
+                if (string.IsNullOrEmpty(prefix))
+                {
+                    try { prefix = PlayerPrefs.GetString(PrefKeyPrefix, string.Empty); }
+                    catch { prefix = string.Empty; }
+                }
+                if (string.IsNullOrEmpty(prefix)) prefix = GuessPrefix();
+
+                // Normalize for folder grouping
+                string roleFolder =
+                    Application.isEditor ? "Editor" :
+                    string.Equals(prefix, "server", StringComparison.OrdinalIgnoreCase) ? "Server" :
+                    string.Equals(prefix, "listen", StringComparison.OrdinalIgnoreCase) ? "Listen" :
+                    "Client";
+
+                string finalDir = Path.Combine(baseDir, roleFolder);
+                Directory.CreateDirectory(finalDir);
+
+                // 3) File name
+                string ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"{ts}_{prefix.ToLowerInvariant()}.log";
+                _logFilePath = Path.Combine(finalDir, fileName);
+
+                // 4) Attach
+                _writer = new StreamWriter(File.Open(_logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+                {
+                    AutoFlush = true,
+                    NewLine = "\n"
+                };
+
+                Application.logMessageReceivedThreaded += OnLogMessage;
+
+                WriteHeader(baseDir, roleFolder, prefix);
+                Info("BFFileLogger", $"Writing logs to: {_logFilePath}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[BFFileLogger] Failed to start: {ex}");
+            }
+        }
+
+        /// <summary>Stop and dispose writer. Optional.</summary>
+        public static void Stop()
+        {
+            if (!_started) return;
+            _started = false;
+            Application.logMessageReceivedThreaded -= OnLogMessage;
+            lock (_lock)
+            {
+                try { _writer?.Flush(); _writer?.Dispose(); }
+                catch { /* ignore */ }
                 _writer = null;
             }
-            _started = false;
         }
-    }
 
-    static void HandleLog(string condition, string stackTrace, LogType type)
-    {
-        if (_writer == null) return;
-
-        var sb = new StringBuilder(512);
-        sb.Append(DateTime.Now.ToString("HH:mm:ss.fff"));
-        sb.Append(" [").Append(Thread.CurrentThread.ManagedThreadId).Append("] ");
-        sb.Append('[').Append(type).Append("] ").Append(condition);
-
-        if (!string.IsNullOrEmpty(stackTrace) &&
-            (type == LogType.Error || type == LogType.Assert || type == LogType.Exception))
+        static void WriteHeader(string baseDir, string roleFolder, string prefix)
         {
-            sb.Append("\n").Append(stackTrace.TrimEnd());
+            var sb = new StringBuilder();
+            sb.AppendLine($"# === Log Start {DateTime.Now:yyyy-MM-ddTHH:mm:ss.fffffffK} ===");
+            sb.AppendLine($"# Role={(Application.isEditor ? "Editor/Player" : prefix)}   BatchMode={Application.isBatchMode}");
+            sb.AppendLine($"# Unity={Application.unityVersion}   Product={Application.productName} {Application.version}");
+            sb.AppendLine($"# Platform={Application.platform}");
+            sb.AppendLine($"# LogFile={_logFilePath}");
+            sb.AppendLine($"# CmdLine={Environment.CommandLine}");
+            sb.AppendLine("# =================================");
+            lock (_lock) _writer?.WriteLine(sb.ToString());
         }
 
-        lock (Gate) _writer.WriteLine(sb.ToString());
-    }
+        static void OnLogMessage(string condition, string stackTrace, LogType type)
+        {
+            if (_writer == null) return;
 
-    static void WriteHeader()
-    {
-        var args = Environment.GetCommandLineArgs();
-        var role = GetArg("-mode") ?? (Application.isBatchMode ? "Server/Headless?" : "Editor/Player");
-        var header =
-$@"# === Log Start {DateTime.Now:O} ===
-# Role={role}   BatchMode={Application.isBatchMode}
-# Unity={Application.unityVersion}   Product={Application.productName} {Application.version}
-# Platform={Application.platform}
-# LogFile={_logPath}
-# CmdLine={string.Join(" ", args)}
-# =================================";
-        lock (Gate) _writer.WriteLine(header);
-    }
+            var now = DateTime.Now;
+            var tid = System.Threading.Thread.CurrentThread.ManagedThreadId;
+            var level = type.ToString().ToUpperInvariant();
+            string line = $"{now:HH:mm:ss.fff} [T{tid}] [{level}] {condition}";
+            lock (_lock)
+            {
+                _writer.WriteLine(line);
+                if (type == LogType.Exception || type == LogType.Error)
+                    _writer.WriteLine(stackTrace);
+            }
+        }
 
-    static string GetArg(string name)
-    {
-        var args = Environment.GetCommandLineArgs();
-        for (int i = 0; i < args.Length; i++)
-            if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
-                return args[i + 1];
-        return null;
-    }
-}
+        static string GuessPrefix()
+        {
+            // Try to guess from command line or environment
+            string mode = GetArgValue("-mode");
+            if (!string.IsNullOrEmpty(mode))
+                return mode.ToLowerInvariant();
 
-// sorgt fürs saubere Schließen
-public class BFFileLoggerSink : MonoBehaviour
-{
-    void OnApplicationQuit() => BFFileLogger.Shutdown();
-    void OnDestroy() => BFFileLogger.Shutdown();
+            // If headless/batch likely server
+            if (Application.isBatchMode && SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+                return "server";
+
+            return "client";
+        }
+
+        static string GetArgValue(string name)
+        {
+            try
+            {
+                var args = Environment.GetCommandLineArgs();
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (i + 1 < args.Length) return args[i + 1];
+                        return string.Empty;
+                    }
+                }
+            }
+            catch { /* ignored */ }
+            return string.Empty;
+        }
+
+        static void Info(string tag, string msg) => Debug.Log($"[{tag}] {msg}");
+    }
 }

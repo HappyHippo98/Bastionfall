@@ -64,3 +64,8 @@ Recordings/
 #   - ProjectSettings/**
 #   - Packages/manifest.json and Packages/packages-lock.json
 # These should be committed so the project opens correctly on every machine.
+
+
+
+#BF Specific
+AllScripts.txt

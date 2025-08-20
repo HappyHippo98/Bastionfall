@@ -1,11 +1,12 @@
 ﻿// Assets/Scripts/ServerOnly/ServerGoInGameRpcSystem.cs
+
+using Game.Shared.Net;
+using Game.Shared.Util;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
-using Game.Shared.Net;
-using Game.Shared.Util;
 
-namespace Game.Server
+namespace ServerOnly
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]

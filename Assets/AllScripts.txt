@@ -1,4 +1,110 @@
-===== FILE: Scripts\ClientOnly\ClientGhostCollectionDumpSystem.cs ===== 
+# === Assets Snapshot ===
+# Created: 20.08.2025 20:52:14,10
+# Assets: S:\Projects\Unity\Bastionfall\Assets
+# ------------------------------------
+
+===== DIRECTORY TREE (nur Ordner mit .cs) =====
+Assets\Scripts\ClientOnly
+  - ClientGhostCollectionDumpSystem.cs
+Assets\Scripts\ClientOnly
+  - ClientGhostPresenceLogSystem.cs
+Assets\Scripts\ClientOnly
+  - ClientInputDebugLogSystem.cs
+Assets\Scripts\ClientOnly
+  - ClientLogOnHaveIdSystem.cs
+Assets\Scripts\ClientOnly
+  - ClientLogOnInGameSystem.cs
+Assets\Scripts\ClientOnly
+  - ClientOnHelloRpcSystem.cs
+Assets\Scripts\ClientOnly
+  - ClientRequestInGameSystem.cs
+Assets\Scripts\ClientOnly
+  - ClientSetCommandTargetSystem.cs
+Assets\Scripts\ClientOnly
+  - FollowLocalPlayer.cs
+Assets\Scripts\ClientOnly
+  - GatherPlayerInputSystem.cs
+Assets\Scripts\ClientOnly
+  - LocalInputDebugState.cs
+Assets\Scripts\Editor
+  - BFEditorLogStartup.cs
+Assets\Scripts\Editor
+  - BFFileLoggerEditor.cs
+Assets\Scripts\Editor
+  - BuildAll.cs
+Assets\Scripts\Editor
+  - GhostPrefabGuidCheck.cs
+Assets\Scripts\Editor
+  - NetCodePlayToolsProxy.cs
+Assets\Scripts\Editor
+  - NetGameSettingsEditor.cs
+Assets\Scripts\Editor
+  - SceneBakeTools.cs
+Assets\Scripts\ServerOnly
+  - ServerConnectionCountMonitor.cs
+Assets\Scripts\ServerOnly
+  - ServerConnectionLoggingSystem.cs
+Assets\Scripts\ServerOnly
+  - ServerDespawnOnDisconnectSystem.cs
+Assets\Scripts\ServerOnly
+  - ServerGoInGameRpcSystem.cs
+Assets\Scripts\ServerOnly
+  - ServerHelloOnConnectSystem.cs
+Assets\Scripts\ServerOnly
+  - ServerInGameLoggingSystem.cs
+Assets\Scripts\ServerOnly
+  - ServerInputDebugState.cs
+Assets\Scripts\ServerOnly
+  - ServerLogOnConnectSystem.cs
+Assets\Scripts\ServerOnly
+  - ServerLogOnInGameSystem.cs
+Assets\Scripts\ServerOnly
+  - ServerReadyLoggingSystem.cs
+Assets\Scripts\ServerOnly
+  - ServerSpawnPlayerOnInGameSystem.cs
+Assets\Scripts\Shared\Authoring
+  - GhostNameBaker.cs
+Assets\Scripts\Shared\Authoring
+  - GhostNameMarker.cs
+Assets\Scripts\Shared\Authoring
+  - GhostRegistryAuthoring.cs
+Assets\Scripts\Shared\Authoring
+  - PlayerAuthoring.cs
+Assets\Scripts\Shared\Authoring
+  - PlayerSpawnerAuthoring.cs
+Assets\Scripts\Shared\Config
+  - NetGameSettings.cs
+Assets\Scripts\Shared\Gameplay
+  - PlayerMovementSystem.cs
+Assets\Scripts\Shared\Net
+  - GhostBootstrap.cs
+Assets\Scripts\Shared\Net
+  - GoInGameRpc.cs
+Assets\Scripts\Shared\Net
+  - MultiplayerBootstrap.cs
+Assets\Scripts\Shared\Net
+  - RegisterGhostsFromRegistrySystem.cs
+Assets\Scripts\Shared\Net
+  - ServerHelloRpc.cs
+Assets\Scripts\Shared\Util
+  - BFFileLogger.cs
+Assets\Scripts\Shared\Util
+  - BFLog.cs
+Assets\Scripts\Shared\Util
+  - CommandLine.cs
+Assets\Scripts\Shared\Util
+  - EnsureRunInBackground.cs
+Assets\Scripts\Shared\Util
+  - ServerSceneStripper.cs
+Assets\TutorialInfo\Scripts
+  - Readme.cs
+Assets\TutorialInfo\Scripts\Editor
+  - ReadmeEditor.cs
+===== END DIRECTORY TREE =====
+
+===== C# SOURCES UNDER Assets =====
+
+---------- FILE: Assets\Scripts\ClientOnly\ClientGhostCollectionDumpSystem.cs ----------
 // Assets/Scripts/ClientOnly/ClientGhostCollectionDumpSystem.cs
 using Unity.Entities;
 using Unity.NetCode;
@@ -26,9 +132,8 @@ public partial struct ClientGhostCollectionDumpSystem : ISystem
         }
         s.Enabled = false;
     }
-} 
- 
-===== FILE: Scripts\ClientOnly\ClientGhostPresenceLogSystem.cs ===== 
+}
+---------- FILE: Assets\Scripts\ClientOnly\ClientGhostPresenceLogSystem.cs ----------
 // Assets/Scripts/ClientOnly/ClientGhostPresenceLogSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -68,9 +173,8 @@ namespace Game.Client
             }
         }
     }
-} 
- 
-===== FILE: Scripts\ClientOnly\ClientInputDebugLogSystem.cs ===== 
+}
+---------- FILE: Assets\Scripts\ClientOnly\ClientInputDebugLogSystem.cs ----------
 ﻿// Assets/Scripts/ClientOnly/ClientInputDebugLogSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -174,6 +278,7 @@ namespace Game.Client
                 {
                     var xf = em.GetComponentData<LocalTransform>(target);
                     Debug.Log($"[Input] ECS h={h:0.00} v={v:0.00} jump={j}  pos=({xf.Position.x:0.00},{xf.Position.y:0.00},{xf.Position.z:0.00})");
+                    s.Enabled = false;
                 }
                 else
                 {
@@ -186,9 +291,8 @@ namespace Game.Client
         }
     }
 }
- 
- 
-===== FILE: Scripts\ClientOnly\ClientLogOnHaveIdSystem.cs ===== 
+
+---------- FILE: Assets\Scripts\ClientOnly\ClientLogOnHaveIdSystem.cs ----------
 ﻿// Assets/Scripts/ClientOnly/ClientLogOnHaveIdSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -197,6 +301,7 @@ using Game.Shared.Util;
 
 namespace Game.Client
 {
+    
     public struct ClientConnSeenTag : IComponentData {}
     public struct ClientInGameLoggedTag : IComponentData {}
 
@@ -224,9 +329,8 @@ namespace Game.Client
             ecb.Playback(em);
         }
     }
-} 
- 
-===== FILE: Scripts\ClientOnly\ClientLogOnInGameSystem.cs ===== 
+}
+---------- FILE: Assets\Scripts\ClientOnly\ClientLogOnInGameSystem.cs ----------
 ﻿// Assets/Scripts/ClientOnly/ClientLogOnInGameSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -260,9 +364,8 @@ namespace Game.Client
             ecb.Playback(em);
         }
     }
-} 
- 
-===== FILE: Scripts\ClientOnly\ClientOnHelloRpcSystem.cs ===== 
+}
+---------- FILE: Assets\Scripts\ClientOnly\ClientOnHelloRpcSystem.cs ----------
 ﻿// Assets/Scripts/ClientOnly/ClientOnHelloRpcSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -280,6 +383,7 @@ namespace Game.Client
         {
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
+            
             foreach (var (hello, recv, e) in SystemAPI
                          .Query<RefRO<ServerHelloRpc>, RefRO<ReceiveRpcCommandRequest>>()
                          .WithEntityAccess())
@@ -291,10 +395,11 @@ namespace Game.Client
             ecb.Playback(s.EntityManager);
         }
     }
-} 
- 
-===== FILE: Scripts\ClientOnly\ClientRequestInGameSystem.cs ===== 
+}
+---------- FILE: Assets\Scripts\ClientOnly\ClientRequestInGameSystem.cs ----------
 ﻿// Assets/Scripts/ClientOnly/ClientRequestInGameSystem.cs
+
+using System;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
@@ -338,10 +443,64 @@ namespace Game.Client
             Debug.Log("[Client][RPC] Sent GoInGameRpc");
             s.Enabled = false; // nur einmal
         }
+
+        public void OnDestroy(ref SystemState state)
+        {
+            Debug.Log("On Destroy ClientRequestInGameSystem");
+            state.Enabled = true;
+        }
     }
-} 
- 
-===== FILE: Scripts\ClientOnly\FollowLocalPlayer.cs ===== 
+}
+---------- FILE: Assets\Scripts\ClientOnly\ClientSetCommandTargetSystem.cs ----------
+﻿// Assets/Scripts/ClientOnly/ClientSetCommandTargetSystem.cs
+
+using Game.Shared.Authoring;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.NetCode;
+using UnityEngine;
+using Game.Shared.Util;
+
+namespace Game.Client
+{
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ClientSetCommandTargetSystem : ISystem
+    {
+        private bool _done;
+
+        public void OnUpdate(ref SystemState s)
+        {
+            if (_done) return;
+
+            var em = s.EntityManager;
+
+            var connQ = SystemAPI.QueryBuilder().WithAll<NetworkStreamConnection, NetworkId>().Build();
+            if (connQ.IsEmpty) return;
+
+            var conn = connQ.GetSingletonEntity();
+
+            var localQ = SystemAPI.QueryBuilder()
+                .WithAll<GhostOwnerIsLocal, PlayerInput>()
+                .Build();
+
+            using var ents = localQ.ToEntityArray(Allocator.Temp);
+            if (ents.Length == 0) return;
+
+            var target = ents[0];
+            var ct = em.HasComponent<CommandTarget>(conn) ? em.GetComponentData<CommandTarget>(conn) : new CommandTarget();
+
+            if (ct.targetEntity != target)
+            {
+                ct.targetEntity = target;
+                em.SetComponentData(conn, ct);
+                s.LogInfo("Client", $"Set CommandTarget → {target.Index}");
+                _done = true;
+            }
+        }
+    }
+}
+---------- FILE: Assets\Scripts\ClientOnly\FollowLocalPlayer.cs ----------
 ﻿using Unity.Entities;
 using Unity.NetCode;
 using Unity.Transforms;
@@ -425,9 +584,8 @@ public sealed class FollowLocalPlayer : MonoBehaviour
         return false;
     }
 }
- 
- 
-===== FILE: Scripts\ClientOnly\GatherPlayerInputSystem.cs ===== 
+
+---------- FILE: Assets\Scripts\ClientOnly\GatherPlayerInputSystem.cs ----------
 ﻿// Assets/Scripts/ClientOnly/GatherPlayerInputSystem.cs
 using Unity.Entities;
 using Unity.NetCode;
@@ -496,9 +654,8 @@ namespace Game.Client
         }
     }
 }
- 
- 
-===== FILE: Scripts\ClientOnly\LocalInputDebugState.cs ===== 
+
+---------- FILE: Assets\Scripts\ClientOnly\LocalInputDebugState.cs ----------
 // Assets/Scripts/ClientOnly/LogLocalInputSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -573,11 +730,13 @@ namespace Game.Client
                     var xf = em.GetComponentData<LocalTransform>(e);
                     state.LogInfo("Input", "h={0:0.00} v={1:0.00} jump={2}  pos=({3:0.00},{4:0.00},{5:0.00})",
                         h, v, jump ? 1 : 0, xf.Position.x, xf.Position.y, xf.Position.z);
+                    state.Enabled = false;
                 }
                 else
                 {
                     state.LogInfo("Input", "h={0:0.00} v={1:0.00} jump={2}",
                         h, v, jump ? 1 : 0);
+                    state.Enabled = false;
                 }
 
                 dbg.LastH = h;
@@ -588,55 +747,80 @@ namespace Game.Client
         }
     }
 }
- 
- 
-===== FILE: Scripts\Editor\BFFileLoggerEditor.cs ===== 
+.
+---------- FILE: Assets\Scripts\Editor\BFEditorLogStartup.cs ----------
+﻿#if UNITY_EDITOR
+using UnityEditor;
+using UnityEngine;
+using System.IO;
+
+/// <summary>
+/// Erzwingt im Editor-Playmode einen separaten Log-Unterordner,
+/// damit Editor-Logs nicht mit Client/Server-Build-Logs vermischt werden.
+/// </summary>
+[InitializeOnLoad]
+public static class BFEditorLogStartup
+{
+    private const string PrefKey_LogDir    = "bf.logdir";
+    private const string PrefKey_LogPrefix = "bf.logprefix";
+    private const string EditorSubdir      = "editor_client"; // Wunschname
+
+    static BFEditorLogStartup()
+    {
+        EditorApplication.playModeStateChanged += OnPlayModeChanged;
+    }
+
+    private static void OnPlayModeChanged(PlayModeStateChange state)
+    {
+        if (state != PlayModeStateChange.EnteredPlayMode) return;
+
+        // Basis: Application.persistentDataPath/Logs/editor_client
+        var baseLogs = Path.Combine(Application.persistentDataPath, "Logs");
+        var editorLogs = Path.Combine(baseLogs, EditorSubdir);
+        Directory.CreateDirectory(editorLogs);
+
+        // Werte in PlayerPrefs spiegeln (BFFileLogger liest die Prefs)
+        PlayerPrefs.SetString(PrefKey_LogDir, editorLogs);
+        PlayerPrefs.SetString(PrefKey_LogPrefix, "client");
+        PlayerPrefs.Save();
+
+        // Optional: Sofort öffnen, falls dein BFFileLogger eine direkte API hat
+        // BFFileLogger.Open(editorLogs, "client");
+        Debug.Log($"[BFEditorLogStartup] Editor-Logs nach: {editorLogs}");
+    }
+}
+#endif.
+---------- FILE: Assets\Scripts\Editor\BFFileLoggerEditor.cs ----------
 ﻿#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 
-[InitializeOnLoad]
-public static class BFFileLoggerEditor
+namespace Game.Editor
 {
-    static BFFileLoggerEditor()
+    /// <summary>
+    /// Boots BFFileLogger inside the Editor and provides a menu to open the log folder.
+    /// </summary>
+    [InitializeOnLoad]
+    public static class BFFileLoggerEditor
     {
-        // Bei Enter Play Mode starten – auch ohne Domain Reload
-        EditorApplication.playModeStateChanged += state =>
+        static BFFileLoggerEditor()
         {
-            if (state == PlayModeStateChange.EnteredPlayMode)
-            {
-                // gewünschten Prefix in PlayerPrefs spiegeln (zur Laufzeit lesbar)
-                var pfx = EditorPrefs.GetString("BF_LogPrefix", "client"); // Wunsch: "client"
-                PlayerPrefs.SetString("BF_LogPrefix", pfx);
-                PlayerPrefs.Save();
+            // Default the prefix to "client" for editor play sessions.
+            Game.Shared.Util.BFFileLogger.SetPrefix("client");
+            Game.Shared.Util.BFFileLogger.StartIfNeeded();
+        }
 
-                BFFileLogger.StartIfNeeded(); // erstellt die Datei + schreibt den Pfad ins Console-Log
-            }
-            else if (state == PlayModeStateChange.ExitingPlayMode)
-            {
-                BFFileLogger.Shutdown();
-            }
-        };
-    }
-
-    [MenuItem("Bastionfall/Logs/Prefix/Client")]
-    static void SetClient() => EditorPrefs.SetString("BF_LogPrefix", "client");
-
-    [MenuItem("Bastionfall/Logs/Prefix/Server")]
-    static void SetServer() => EditorPrefs.SetString("BF_LogPrefix", "server");
-
-    [MenuItem("Bastionfall/Logs/Prefix/Play")]
-    static void SetPlay() => EditorPrefs.SetString("BF_LogPrefix", "play");
-
-    [MenuItem("Bastionfall/Logs/Open persistentDataPath")]
-    static void OpenFolder()
-    {
-        EditorUtility.RevealInFinder(System.IO.Path.Combine(Application.persistentDataPath, "Logs"));
+        [MenuItem("Bastionfall/Logs/Open Editor Log Folder", priority = 50)]
+        public static void OpenEditorLogFolder()
+        {
+            string baseDir = System.IO.Path.Combine(Application.persistentDataPath, "Logs", "Editor");
+            System.IO.Directory.CreateDirectory(baseDir);
+            EditorUtility.RevealInFinder(baseDir);
+        }
     }
 }
-#endif 
- 
-===== FILE: Scripts\Editor\BuildAll.cs ===== 
+#endif.
+---------- FILE: Assets\Scripts\Editor\BuildAll.cs ----------
 ﻿// Assets/Scripts/Editor/Build/BuildAll.cs
 using System;
 using System.IO;
@@ -921,9 +1105,8 @@ cd ""$(dirname ""$0"")""
         }
     }
 }
- 
- 
-===== FILE: Scripts\Editor\GhostPrefabGuidCheck.cs ===== 
+.
+---------- FILE: Assets\Scripts\Editor\GhostPrefabGuidCheck.cs ----------
 ﻿#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
@@ -949,9 +1132,8 @@ public static class GhostPrefabGuidCheck
         Debug.Log($"Resources GUID: {resGuid}\nSpawner GUID:   {spGuid}\nMatch: {resGuid == spGuid}");
     }
 }
-#endif 
- 
-===== FILE: Scripts\Editor\NetCodePlayToolsProxy.cs ===== 
+#endif.
+---------- FILE: Assets\Scripts\Editor\NetCodePlayToolsProxy.cs ----------
 ﻿// Assets/Scripts/Editor/NetCodePlayToolsProxy.cs
 using System;
 using System.Linq;
@@ -1004,9 +1186,8 @@ public static class NetCodePlayToolsProxy
         return false;
     }
 }
- 
- 
-===== FILE: Scripts\Editor\NetGameSettingsEditor.cs ===== 
+.
+---------- FILE: Assets\Scripts\Editor\NetGameSettingsEditor.cs ----------
 // Assets/Scripts/Editor/NetGameSettingsEditor.cs
 using UnityEditor;
 using UnityEngine;
@@ -1088,9 +1269,8 @@ public class NetGameSettingsEditor : Editor
             NetCodePlayToolsProxy.TrySetClient();
     }
 }
- 
- 
-===== FILE: Scripts\Editor\SceneBakeTools.cs ===== 
+.
+---------- FILE: Assets\Scripts\Editor\SceneBakeTools.cs ----------
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
@@ -1242,9 +1422,8 @@ public static class SceneBakeTools
     }
 }
 #endif
- 
- 
-===== FILE: Scripts\ServerOnly\ServerConnectionCountMonitor.cs ===== 
+.
+---------- FILE: Assets\Scripts\ServerOnly\ServerConnectionCountMonitor.cs ----------
 ﻿// Assets/Scripts/ServerOnly/ServerConnectionCountMonitorSystem.cs
 using Unity.Entities;
 using Unity.NetCode;
@@ -1276,9 +1455,91 @@ namespace Game.Server
             }
         }
     }
-} 
- 
-===== FILE: Scripts\ServerOnly\ServerDespawnOnDisconnectSystem.cs ===== 
+}.
+---------- FILE: Assets\Scripts\ServerOnly\ServerConnectionLoggingSystem.cs ----------
+﻿// Assets/Scripts/ServerOnly/ServerConnectionLoggingSystem.cs
+using Unity.Entities;
+using Unity.Collections;
+using Unity.NetCode;
+using Game.Shared.Util; // für state.LogInfo(...)
+
+namespace Game.Server
+{
+    // Marker-Komponenten, um jede Phase nur einmal zu loggen
+    public struct LoggedNewConnection : IComponentData {}
+    public struct LoggedNetworkId   : IComponentData {}
+    public struct LoggedInGame      : IComponentData {}
+    // public struct LoggedDisconnected : IComponentData {} // optional, siehe unten
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [CreateAfter(typeof(NetworkStreamReceiveSystem))]
+    public partial struct ServerConnectionLoggingSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            state.LogInfo("Bootstrap", fmt: "ServerConnectionLoggingSystem ONLINE");
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+            // 1) Neue Connection-Entities (noch ohne NetworkId)
+            foreach (var (_, e) in SystemAPI
+                         .Query<RefRO<NetworkStreamConnection>>()
+                         .WithNone<LoggedNewConnection>()
+                         .WithEntityAccess())
+            {
+                ecb.AddComponent<LoggedNewConnection>(e);
+                state.LogInfo("Conn", fmt: "New connection entity created (awaiting NetworkId).");
+            }
+
+            // 2) NetworkId zum ersten Mal vergeben
+            foreach (var (id, e) in SystemAPI
+                         .Query<RefRO<NetworkId>>()
+                         .WithAll<NetworkStreamConnection>()
+                         .WithNone<LoggedNetworkId>()
+                         .WithEntityAccess())
+            {
+                ecb.AddComponent<LoggedNetworkId>(e);
+                state.LogInfo("Conn", fmt: $"Assigned NetworkId={id.ValueRO.Value}.");
+            }
+
+            // 3) InGame gesetzt
+            foreach (var (id, e) in SystemAPI
+                         .Query<RefRO<NetworkId>>()
+                         .WithAll<NetworkStreamConnection, NetworkStreamInGame>()
+                         .WithNone<LoggedInGame>()
+                         .WithEntityAccess())
+            {
+                ecb.AddComponent<LoggedInGame>(e);
+                state.LogInfo("Conn", fmt: $"Connection is InGame (netId={id.ValueRO.Value}).");
+            }
+
+            // 4) Optional: Disconnects loggen.
+            // In vielen NetCode-Versionen gibt es die public-Tag-Komponente `NetworkStreamDisconnected`.
+            // Falls dein Paket sie enthält, kannst du den folgenden Block ent-kommentieren
+            // UND die Marker-Komponente LoggedDisconnected (oben) aktivieren:
+            /*
+            foreach (var (id, e) in SystemAPI
+                         .Query<RefRO<NetworkId>>()
+                         .WithAll<NetworkStreamDisconnected>()
+                         .WithNone<LoggedDisconnected>()
+                         .WithEntityAccess())
+            {
+                ecb.AddComponent<LoggedDisconnected>(e);
+                state.LogInfo("Conn", fmt: $"Disconnected (netId={id.ValueRO.Value}).");
+            }
+            */
+
+            ecb.Playback(state.EntityManager);
+            ecb.Dispose();
+        }
+    }
+}
+.
+---------- FILE: Assets\Scripts\ServerOnly\ServerDespawnOnDisconnectSystem.cs ----------
 ﻿// Assets/Scripts/ServerOnly/ServerDespawnOnDisconnectSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -1331,9 +1592,8 @@ namespace Game.Server
             activeIds.Dispose();
         }
     }
-} 
- 
-===== FILE: Scripts\ServerOnly\ServerGoInGameRpcSystem.cs ===== 
+}.
+---------- FILE: Assets\Scripts\ServerOnly\ServerGoInGameRpcSystem.cs ----------
 ﻿// Assets/Scripts/ServerOnly/ServerGoInGameRpcSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -1368,9 +1628,8 @@ namespace Game.Server
         }
     }
 }
- 
- 
-===== FILE: Scripts\ServerOnly\ServerHelloOnConnectSystem.cs ===== 
+.
+---------- FILE: Assets\Scripts\ServerOnly\ServerHelloOnConnectSystem.cs ----------
 ﻿// Assets/Scripts/ServerOnly/ServerHelloOnConnectSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -1382,6 +1641,7 @@ namespace Game.Server
 {
     public struct HelloSentTag : IComponentData {}
 
+    
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct ServerHelloOnConnectSystem : ISystem
@@ -1407,9 +1667,33 @@ namespace Game.Server
             ecb.Playback(s.EntityManager);
         }
     }
-} 
- 
-===== FILE: Scripts\ServerOnly\ServerInputDebugState.cs ===== 
+}.
+---------- FILE: Assets\Scripts\ServerOnly\ServerInGameLoggingSystem.cs ----------
+﻿// Assets/Scripts/ServerOnly/ServerInGameLoggingSystem.cs
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Util;
+
+namespace Game.Server
+{
+    // Loggt genau dann, wenn der Server eine Connection als InGame markiert
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ServerInGameLoggingSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState s)
+        {
+            foreach (var (netId, e) in SystemAPI.Query<RefRO<NetworkId>>()
+                         .WithAll<NetworkStreamInGame>()
+                         .WithEntityAccess()
+                         .WithChangeFilter<NetworkStreamInGame>())
+            {
+                s.LogInfo("Conn", "Server marked connection InGame (netId={0})", netId.ValueRO.Value);
+            }
+        }
+    }
+}.
+---------- FILE: Assets\Scripts\ServerOnly\ServerInputDebugState.cs ----------
 ﻿// Assets/Scripts/ServerOnly/ServerInputLogSystem.cs
 using Unity.Entities;
 using Unity.NetCode;
@@ -1454,9 +1738,8 @@ namespace Game.Server
             }
         }
     }
-} 
- 
-===== FILE: Scripts\ServerOnly\ServerLogOnConnectSystem.cs ===== 
+}.
+---------- FILE: Assets\Scripts\ServerOnly\ServerLogOnConnectSystem.cs ----------
 // Assets/Scripts/ServerOnly/ServerLogOnConnectSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -1486,9 +1769,8 @@ namespace Game.Server
             ecb.Playback(state.EntityManager);
         }
     }
-} 
- 
-===== FILE: Scripts\ServerOnly\ServerLogOnInGameSystem.cs ===== 
+}.
+---------- FILE: Assets\Scripts\ServerOnly\ServerLogOnInGameSystem.cs ----------
 ﻿// Assets/Scripts/ServerOnly/ServerLogOnInGameSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -1517,9 +1799,36 @@ namespace Game.Server
             ecb.Playback(state.EntityManager);
         }
     }
-} 
- 
-===== FILE: Scripts\ServerOnly\ServerSpawnPlayerOnInGameSystem.cs ===== 
+}.
+---------- FILE: Assets\Scripts\ServerOnly\ServerReadyLoggingSystem.cs ----------
+﻿// Assets/Scripts/ServerOnly/ServerReadyLoggingSystem.cs
+using Unity.Entities;
+using Unity.NetCode;
+using Game.Shared.Util; // für state.LogInfo(...)
+
+namespace Game.Server
+{
+    // Nur im Server-Simulations-World laufen lassen
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial struct ServerReadyLoggingSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            // Erst updaten, wenn der Driver existiert (dann sind wir "wirklich" bereit)
+            state.RequireForUpdate<NetworkStreamDriver>();
+            state.LogInfo("Bootstrap", fmt: "ServerReadyLoggingSystem ONLINE");
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            // Wenn wir hier sind, existiert NetworkStreamDriver -> bereit für Verbindungen
+            state.LogInfo("Bootstrap", fmt: "Ready to accept connections.");
+            state.Enabled = false; // einmaliges Logging reicht
+        }
+    }
+}.
+---------- FILE: Assets\Scripts\ServerOnly\ServerSpawnPlayerOnInGameSystem.cs ----------
 ﻿// Assets/Scripts/ServerOnly/ServerSpawnPlayerOnInGameSystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -1538,14 +1847,37 @@ namespace Game.Server
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct ServerSpawnPlayerOnInGameSystem : ISystem
     {
+        private bool _warnedNoSpawner;
+
+        public void OnCreate(ref SystemState state)
+        {
+            state.LogInfo("Spawn", "ServerSpawnPlayerOnInGameSystem ONLINE");
+        }
+
         public void OnUpdate(ref SystemState state)
         {
-            if (!SystemAPI.TryGetSingleton<PlayerSpawner>(out var spawner))
+            // Ghosts bereit?
+            if (!SystemAPI.HasSingleton<GhostCollection>())
+            {
+                state.LogInfo("Spawn", "No GhostCollection yet – waiting…");
                 return;
+            }
+
+            // Spawner vorhanden?
+            if (!SystemAPI.TryGetSingleton<PlayerSpawner>(out var spawner))
+            {
+                if (!_warnedNoSpawner)
+                {
+                    state.LogError("Spawn", "No PlayerSpawner singleton in world – cannot spawn players!");
+                    _warnedNoSpawner = true;
+                }
+                return;
+            }
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            foreach (var (netId, e) in SystemAPI.Query<RefRO<NetworkId>>()
+            // Für jede InGame-Connection ohne bereits gespawnten Player → Player instantiieren
+            foreach (var (netId, connEntity) in SystemAPI.Query<RefRO<NetworkId>>()
                          .WithAll<NetworkStreamInGame>()
                          .WithNone<SpawnedPlayer>()
                          .WithEntityAccess())
@@ -1553,17 +1885,16 @@ namespace Game.Server
                 var player = state.EntityManager.Instantiate(spawner.PlayerPrefab);
                 state.EntityManager.SetComponentData(player, new GhostOwner { NetworkId = netId.ValueRO.Value });
 
-                ecb.AddComponent(e, new SpawnedPlayer { PlayerEntity = player });
-
+                ecb.AddComponent(connEntity, new SpawnedPlayer { PlayerEntity = player });
                 state.LogInfo("Spawn", "Spawned player ghost for netId={0}", netId.ValueRO.Value);
             }
 
             ecb.Playback(state.EntityManager);
         }
     }
-} 
- 
-===== FILE: Scripts\Shared\Authoring\GhostNameBaker.cs ===== 
+}
+.
+---------- FILE: Assets\Scripts\Shared\Authoring\GhostNameBaker.cs ----------
 ﻿using Unity.Collections;
 using Unity.Entities;
 
@@ -1589,17 +1920,15 @@ namespace Game.Shared.Authoring
             AddComponent(e, new GhostName { Value = name });
         }
     }
-} 
- 
-===== FILE: Scripts\Shared\Authoring\GhostNameMarker.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Authoring\GhostNameMarker.cs ----------
 ﻿using UnityEngine;
 
 namespace Game.Shared.Authoring
 {
     public class GhostNameMarker : MonoBehaviour {}
-} 
- 
-===== FILE: Scripts\Shared\Authoring\GhostRegistryAuthoring.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Authoring\GhostRegistryAuthoring.cs ----------
 using Unity.Entities;
 using UnityEngine;
 
@@ -1633,9 +1962,8 @@ namespace Game.Shared.Authoring
         }
     }
 }
- 
- 
-===== FILE: Scripts\Shared\Authoring\PlayerAuthoring.cs ===== 
+.
+---------- FILE: Assets\Scripts\Shared\Authoring\PlayerAuthoring.cs ----------
 ﻿using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
@@ -1670,9 +1998,8 @@ namespace Game.Shared.Authoring
             }
         }
     }
-} 
- 
-===== FILE: Scripts\Shared\Authoring\PlayerSpawnerAuthoring.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Authoring\PlayerSpawnerAuthoring.cs ----------
 ﻿using Unity.Entities;
 using UnityEngine;
 
@@ -1699,9 +2026,8 @@ namespace Game.Shared.Authoring
             }
         }
     }
-} 
- 
-===== FILE: Scripts\Shared\Config\NetGameSettings.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Config\NetGameSettings.cs ----------
 // Assets/Scripts/Shared/Config/NetGameSettings.cs
 using UnityEngine;
 
@@ -1744,9 +2070,8 @@ namespace Game.Shared.Config
         [Tooltip("Bei AutoDetect: Lokale Ziele -> ListenServer statt Client.")]
         public bool PreferListenWhenLocal = true;
     }
-} 
- 
-===== FILE: Scripts\Shared\Gameplay\PlayerMovementSystem.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Gameplay\PlayerMovementSystem.cs ----------
 ﻿// Assets/Scripts/Shared/Gameplay/PlayerMovementSystems.cs
 using Unity.Burst;
 using Unity.Entities;
@@ -1799,9 +2124,8 @@ namespace Game.Shared.Gameplay
             }
         }
     }
-} 
- 
-===== FILE: Scripts\Shared\Net\GhostBootstrap.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Net\GhostBootstrap.cs ----------
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
@@ -1827,9 +2151,8 @@ namespace Unity.NetCode
         }
     }
 }
- 
- 
-===== FILE: Scripts\Shared\Net\GoInGameRpc.cs ===== 
+.
+---------- FILE: Assets\Scripts\Shared\Net\GoInGameRpc.cs ----------
 ﻿using Unity.Entities;
 using Unity.NetCode;
 
@@ -1838,9 +2161,8 @@ namespace Game.Shared.Net   // <- WICHTIG: exakt dieser Namespace
     public struct GoInGameRpc : IRpcCommand
     {
     }
-} 
- 
-===== FILE: Scripts\Shared\Net\MultiplayerBootstrap.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Net\MultiplayerBootstrap.cs ----------
 ﻿// Assets/Scripts/Shared/Net/MultiplayerBootstrap.cs
 using System;
 using System.Linq;
@@ -1855,6 +2177,7 @@ using Game.Shared.Util;
 
 namespace Game.Shared.Net
 {
+    
     [Preserve]
     public class MultiplayerBootstrap : ClientServerBootstrap
     {
@@ -2038,9 +2361,8 @@ namespace Game.Shared.Net
 #endif
     }
 }
- 
- 
-===== FILE: Scripts\Shared\Net\RegisterGhostsFromRegistrySystem.cs ===== 
+.
+---------- FILE: Assets\Scripts\Shared\Net\RegisterGhostsFromRegistrySystem.cs ----------
 ﻿// Assets/Scripts/Shared/Net/RegisterGhostsFromRegistrySystem.cs
 using Unity.Collections;
 using Unity.Entities;
@@ -2091,9 +2413,8 @@ namespace Game.Shared.Net
             s.Enabled = false;
         }
     }
-} 
- 
-===== FILE: Scripts\Shared\Net\ServerHelloRpc.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Net\ServerHelloRpc.cs ----------
 ﻿using Unity.Entities;
 using Unity.NetCode;
 
@@ -2101,164 +2422,187 @@ namespace Game.Shared.Net
 {
     // Muss ein struct (unmanaged) sein
     public struct ServerHelloRpc : IRpcCommand {}
-} 
- 
-===== FILE: Scripts\Shared\Util\BFFileLogger.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Util\BFFileLogger.cs ----------
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Text;
-using System.Threading;
 using UnityEngine;
 
-public static class BFFileLogger
+namespace Game.Shared.Util
 {
-    static readonly object Gate = new object();
-    static StreamWriter _writer;
-    static string _logPath;
-    static string _prefix;
-    static bool _started;
-
-    // Reset bei (Re)Load/Enter Play Mode – wichtig für "Disable Domain Reload"
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics()
+    /// <summary>
+    /// Single, unified file logger for Editor + Client + Server.
+    /// Usage:
+    ///  - In Editor, BFFileLoggerEditor boots this automatically.
+    ///  - In builds, pass -logdir <dir> and -logprefix <client|server|listen> (BuildAll already does).
+    ///  - Alternatively call BFFileLogger.StartIfNeeded() once on startup.
+    /// The logger writes to "<logdir>/<Role>/<timestamp>_<prefix>.log".
+    /// </summary>
+    public static class BFFileLogger
     {
-        _writer = null;
-        _logPath = null;
-        _prefix = null;
-        _started = false;
-    }
+        static readonly object _lock = new object();
+        static StreamWriter _writer;
+        static string _logFilePath;
+        static bool _started;
 
-    // Läuft früh in Player/Headless-Builds; im Editor nur, wenn Domain reloadet
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
-    static void AutoStart_BeforeSplash() => StartIfNeeded();
+        // PlayerPrefs key used by the Editor bootstrap to persist the desired prefix
+        const string PrefKeyPrefix = "BF_LogPrefix";
 
-    public static void StartIfNeeded(string prefixOverride = null)
-    {
-        if (_started) return;
-
-        try
+        /// <summary>Set a desired prefix for the file name (e.g. "client", "server"). Optional.</summary>
+        public static void SetPrefix(string prefix)
         {
-            // Prefix finden: expliziter Override > Env > PlayerPrefs > -logprefix > -mode > Fallback
-            _prefix = prefixOverride
-                   ?? Environment.GetEnvironmentVariable("BF_LOGPREFIX")
-                   ?? PlayerPrefs.GetString("BF_LogPrefix", null)
-                   ?? GetArg("-logprefix");
+            try { if (!string.IsNullOrEmpty(prefix)) PlayerPrefs.SetString(PrefKeyPrefix, prefix); }
+            catch { /* ignore in headless */ }
+        }
 
-            if (string.IsNullOrEmpty(_prefix))
-            {
-                var mode = GetArg("-mode")?.ToLowerInvariant();
-                _prefix = mode switch {
-                    "server" => "server",
-                    "client" => "client",
-                    "listen" => "listen",
-                    _ => (Application.isBatchMode ? "headless" : "play")
-                };
-            }
-
-            var logDir = GetArg("-logdir");
-            if (string.IsNullOrEmpty(logDir))
-                logDir = Path.Combine(Application.persistentDataPath, "Logs");
-
-            Directory.CreateDirectory(logDir);
-            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            _logPath = Path.Combine(logDir, $"{ts}_{_prefix}.log");
-
-            _writer = new StreamWriter(new FileStream(_logPath, FileMode.Create, FileAccess.Write, FileShare.Read))
-            { AutoFlush = true, NewLine = "\n" };
-
-            WriteHeader();
-
-            Application.logMessageReceivedThreaded += HandleLog;
-
-            // Stacktrace-Policy
-            Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
-            Application.SetStackTraceLogType(LogType.Warning, StackTraceLogType.ScriptOnly);
-            Application.SetStackTraceLogType(LogType.Error, StackTraceLogType.Full);
-            Application.SetStackTraceLogType(LogType.Assert, StackTraceLogType.Full);
-            Application.SetStackTraceLogType(LogType.Exception, StackTraceLogType.Full);
-
-            // Sichtbarer Hinweis mit Pfad
-            Debug.Log($"[BFFileLogger] Writing logs to: {_logPath}");
-
-            // Sauber schließen (auch im Editor-Spielmodus)
-            var go = new GameObject("BFFileLogger_Sink") { hideFlags = HideFlags.HideAndDontSave };
-            go.AddComponent<BFFileLoggerSink>();
-            UnityEngine.Object.DontDestroyOnLoad(go);
-
+        /// <summary>Start the logger once. Safe to call repeatedly.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
+        public static void StartIfNeeded()
+        {
+            if (_started) return;
             _started = true;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[BFFileLogger] Init failed: {e}");
-        }
-    }
 
-    public static void Shutdown()
-    {
-        lock (Gate)
-        {
-            if (_writer != null)
+            try
             {
-                _writer.Flush();
-                _writer.Dispose();
+                // 1) Base directory
+                string argLogDir = GetArgValue("-logdir");
+                string baseDir;
+                if (!string.IsNullOrEmpty(argLogDir))
+                {
+                    baseDir = argLogDir;
+                    // Relative path -> make it relative to the executable folder
+                    if (!Path.IsPathRooted(baseDir))
+                        baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, baseDir);
+                }
+                else
+                {
+                    baseDir = Path.Combine(Application.persistentDataPath, "Logs");
+                }
+
+                // 2) Role subfolder
+                string prefix = GetArgValue("-logprefix");
+                if (string.IsNullOrEmpty(prefix))
+                {
+                    try { prefix = PlayerPrefs.GetString(PrefKeyPrefix, string.Empty); }
+                    catch { prefix = string.Empty; }
+                }
+                if (string.IsNullOrEmpty(prefix)) prefix = GuessPrefix();
+
+                // Normalize for folder grouping
+                string roleFolder =
+                    Application.isEditor ? "Editor" :
+                    string.Equals(prefix, "server", StringComparison.OrdinalIgnoreCase) ? "Server" :
+                    string.Equals(prefix, "listen", StringComparison.OrdinalIgnoreCase) ? "Listen" :
+                    "Client";
+
+                string finalDir = Path.Combine(baseDir, roleFolder);
+                Directory.CreateDirectory(finalDir);
+
+                // 3) File name
+                string ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"{ts}_{prefix.ToLowerInvariant()}.log";
+                _logFilePath = Path.Combine(finalDir, fileName);
+
+                // 4) Attach
+                _writer = new StreamWriter(File.Open(_logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+                {
+                    AutoFlush = true,
+                    NewLine = "\n"
+                };
+
+                Application.logMessageReceivedThreaded += OnLogMessage;
+
+                WriteHeader(baseDir, roleFolder, prefix);
+                Info("BFFileLogger", $"Writing logs to: {_logFilePath}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[BFFileLogger] Failed to start: {ex}");
+            }
+        }
+
+        /// <summary>Stop and dispose writer. Optional.</summary>
+        public static void Stop()
+        {
+            if (!_started) return;
+            _started = false;
+            Application.logMessageReceivedThreaded -= OnLogMessage;
+            lock (_lock)
+            {
+                try { _writer?.Flush(); _writer?.Dispose(); }
+                catch { /* ignore */ }
                 _writer = null;
             }
-            _started = false;
         }
-    }
 
-    static void HandleLog(string condition, string stackTrace, LogType type)
-    {
-        if (_writer == null) return;
-
-        var sb = new StringBuilder(512);
-        sb.Append(DateTime.Now.ToString("HH:mm:ss.fff"));
-        sb.Append(" [").Append(Thread.CurrentThread.ManagedThreadId).Append("] ");
-        sb.Append('[').Append(type).Append("] ").Append(condition);
-
-        if (!string.IsNullOrEmpty(stackTrace) &&
-            (type == LogType.Error || type == LogType.Assert || type == LogType.Exception))
+        static void WriteHeader(string baseDir, string roleFolder, string prefix)
         {
-            sb.Append("\n").Append(stackTrace.TrimEnd());
+            var sb = new StringBuilder();
+            sb.AppendLine($"# === Log Start {DateTime.Now:yyyy-MM-ddTHH:mm:ss.fffffffK} ===");
+            sb.AppendLine($"# Role={(Application.isEditor ? "Editor/Player" : prefix)}   BatchMode={Application.isBatchMode}");
+            sb.AppendLine($"# Unity={Application.unityVersion}   Product={Application.productName} {Application.version}");
+            sb.AppendLine($"# Platform={Application.platform}");
+            sb.AppendLine($"# LogFile={_logFilePath}");
+            sb.AppendLine($"# CmdLine={Environment.CommandLine}");
+            sb.AppendLine("# =================================");
+            lock (_lock) _writer?.WriteLine(sb.ToString());
         }
 
-        lock (Gate) _writer.WriteLine(sb.ToString());
-    }
+        static void OnLogMessage(string condition, string stackTrace, LogType type)
+        {
+            if (_writer == null) return;
 
-    static void WriteHeader()
-    {
-        var args = Environment.GetCommandLineArgs();
-        var role = GetArg("-mode") ?? (Application.isBatchMode ? "Server/Headless?" : "Editor/Player");
-        var header =
-$@"# === Log Start {DateTime.Now:O} ===
-# Role={role}   BatchMode={Application.isBatchMode}
-# Unity={Application.unityVersion}   Product={Application.productName} {Application.version}
-# Platform={Application.platform}
-# LogFile={_logPath}
-# CmdLine={string.Join(" ", args)}
-# =================================";
-        lock (Gate) _writer.WriteLine(header);
-    }
+            var now = DateTime.Now;
+            var tid = System.Threading.Thread.CurrentThread.ManagedThreadId;
+            var level = type.ToString().ToUpperInvariant();
+            string line = $"{now:HH:mm:ss.fff} [T{tid}] [{level}] {condition}";
+            lock (_lock)
+            {
+                _writer.WriteLine(line);
+                if (type == LogType.Exception || type == LogType.Error)
+                    _writer.WriteLine(stackTrace);
+            }
+        }
 
-    static string GetArg(string name)
-    {
-        var args = Environment.GetCommandLineArgs();
-        for (int i = 0; i < args.Length; i++)
-            if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
-                return args[i + 1];
-        return null;
+        static string GuessPrefix()
+        {
+            // Try to guess from command line or environment
+            string mode = GetArgValue("-mode");
+            if (!string.IsNullOrEmpty(mode))
+                return mode.ToLowerInvariant();
+
+            // If headless/batch likely server
+            if (Application.isBatchMode && SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+                return "server";
+
+            return "client";
+        }
+
+        static string GetArgValue(string name)
+        {
+            try
+            {
+                var args = Environment.GetCommandLineArgs();
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (i + 1 < args.Length) return args[i + 1];
+                        return string.Empty;
+                    }
+                }
+            }
+            catch { /* ignored */ }
+            return string.Empty;
+        }
+
+        static void Info(string tag, string msg) => Debug.Log($"[{tag}] {msg}");
     }
 }
-
-// sorgt fürs saubere Schließen
-public class BFFileLoggerSink : MonoBehaviour
-{
-    void OnApplicationQuit() => BFFileLogger.Shutdown();
-    void OnDestroy() => BFFileLogger.Shutdown();
-}
- 
- 
-===== FILE: Scripts\Shared\Util\BFLog.cs ===== 
+.
+---------- FILE: Assets\Scripts\Shared\Util\BFLog.cs ----------
 ﻿using System.Runtime.CompilerServices;
 using Unity.Entities;
 using UnityEngine;
@@ -2300,9 +2644,8 @@ namespace Game.Shared.Util
             => Debug.LogError($"[{s.WorldUnmanaged.Name}][{cat}] {string.Format(fmt, args)}");
     }
 }
- 
- 
-===== FILE: Scripts\Shared\Util\CommandLine.cs ===== 
+.
+---------- FILE: Assets\Scripts\Shared\Util\CommandLine.cs ----------
 using System;
 
 namespace Game.Shared.Util
@@ -2335,9 +2678,8 @@ namespace Game.Shared.Util
             return false;
         }
     }
-} 
- 
-===== FILE: Scripts\Shared\Util\EnsureRunInBackground.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Util\EnsureRunInBackground.cs ----------
 ﻿// Assets/Scripts/Shared/Util/EnsureRunInBackground.cs
 using UnityEngine;
 
@@ -2353,153 +2695,8 @@ namespace Game.Shared.Util
             Application.targetFrameRate = -1;
         }
     }
-} 
- 
-===== FILE: Scripts\Shared\Util\LogSink.cs ===== 
-﻿// Assets/Scripts/Shared/Util/LogSink.cs
-using System;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using UnityEngine;
-
-namespace Game.Shared.Util
-{
-    /// Log-Datei mit Zeitstempel:
-    ///   YYYYMMDD_HHMMSS_server.log / ..._client.log
-    /// CLI:
-    ///   -logdir <dir>   (Ordner, Standard: ./logs)
-    ///   -logprefix <p>  ("server" oder "client", Standard: aus BatchMode abgeleitet)
-    ///   -nolog          (deaktiviert File-Logging)
-    public static class LogSink
-    {
-        static StreamWriter _writer;
-        static readonly object _lock = new();
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        static void Init() => StartNewFileInternal(null);
-
-        // --- Editor helper API (wird vom Editor-Bridge aufgerufen) ------------
-        public static void RestartForEditor(string prefixOverride = null)
-        {
-            Close();
-            StartNewFileInternal(prefixOverride);
-        }
-
-        public static void StopForEditor() => Close();
-
-        // ----------------------------------------------------------------------
-        static void StartNewFileInternal(string forcedPrefix)
-        {
-            if (HasArg("nolog")) { Debug.Log("[LogSink] disabled via -nolog"); return; }
-
-            try
-            {
-                var dir = Arg("logdir") ?? "logs";
-                if (!Path.IsPathRooted(dir))
-                {
-                    var baseDir = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-                    dir = Path.GetFullPath(Path.Combine(baseDir, dir));
-                }
-                Directory.CreateDirectory(dir);
-
-                var prefix = forcedPrefix ?? Arg("logprefix") ?? (Application.isBatchMode ? "server" : "client");
-                var file = $"{DateTime.Now:yyyyMMdd_HHmmss}_{prefix}.log";
-                var path = Path.Combine(dir, file);
-
-                var fs = OpenWithRetry(path);
-                _writer = new StreamWriter(fs, new UTF8Encoding(false)) { AutoFlush = true };
-
-                Header(prefix, path);
-                Application.logMessageReceivedThreaded += Handle;
-                Application.quitting += Close;
-                AppDomain.CurrentDomain.ProcessExit += (_, __) => Close();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[LogSink] init failed: {e}");
-            }
-        }
-
-        static FileStream OpenWithRetry(string path, int retries = 6, int backoffMs = 200)
-        {
-            for (int i = 0; i < retries; i++)
-            {
-                try
-                {
-                    return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 4096, FileOptions.SequentialScan);
-                }
-                catch (IOException) { Thread.Sleep(backoffMs); }
-                catch (UnauthorizedAccessException) { Thread.Sleep(backoffMs); }
-            }
-            var fallback = Path.Combine(Path.GetDirectoryName(path) ?? ".", $"{Path.GetFileNameWithoutExtension(path)}_alt{Path.GetExtension(path)}");
-            return new FileStream(fallback, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-        }
-
-        static void Header(string role, string path)
-        {
-            Write($"# === Log Start {DateTime.Now:O} ===");
-            Write($"# Role={role}   BatchMode={Application.isBatchMode}");
-            Write($"# Unity={Application.unityVersion}   Product={Application.productName} {Application.version}");
-            Write($"# Platform={Application.platform}");
-            Write($"# LogFile={path}");
-            Write($"# CmdLine={Environment.CommandLine}");
-            Write("# =================================");
-        }
-
-        static void Handle(string condition, string stack, LogType type)
-        {
-            var stamp = $"{DateTime.Now:HH:mm:ss.fff} (+{Time.realtimeSinceStartup,7:0.000}s)";
-            var lvl = type.ToString().ToUpperInvariant();
-            var tid = System.Threading.Thread.CurrentThread.ManagedThreadId;
-
-            Write($"{stamp} [T{tid}] [{lvl}] {condition}");
-            if ((type == LogType.Error || type == LogType.Exception || type == LogType.Assert) && !string.IsNullOrEmpty(stack))
-                Write(stack);
-        }
-
-        static void Write(string line)
-        {
-            lock (_lock) _writer?.WriteLine(line);
-        }
-
-        static void Close()
-        {
-            try
-            {
-                Application.logMessageReceivedThreaded -= Handle;
-                lock (_lock) { _writer?.Flush(); _writer?.Dispose(); _writer = null; }
-            } catch { /* ignore */ }
-        }
-
-        static string Arg(string key)
-        {
-            var args = Environment.GetCommandLineArgs();
-            for (int i = 0; i < args.Length - 1; i++)
-                if (string.Equals(args[i].TrimStart('-','/'), key, StringComparison.OrdinalIgnoreCase))
-                    return args[i + 1];
-            return null;
-        }
-        static bool HasArg(string key)
-        {
-            var args = Environment.GetCommandLineArgs();
-            return args.Any(a => string.Equals(a.TrimStart('-','/'), key, StringComparison.OrdinalIgnoreCase));
-        }
-    }
-}
- 
- 
-===== FILE: Scripts\Shared\Util\LogSinkEditorBridge.cs ===== 
-﻿namespace Game.Shared.Util
-{
-    public class LogSinkEditorBridge
-    {
-        
-    }
-} 
- 
-===== FILE: Scripts\Shared\Util\ServerSceneStripper.cs ===== 
+}.
+---------- FILE: Assets\Scripts\Shared\Util\ServerSceneStripper.cs ----------
 ﻿using UnityEngine;
 
 namespace Game.Shared.Util
@@ -2530,9 +2727,8 @@ namespace Game.Shared.Util
         }
     }
 }
- 
- 
-===== FILE: TutorialInfo\Scripts\Readme.cs ===== 
+.
+---------- FILE: Assets\TutorialInfo\Scripts\Readme.cs ----------
 ﻿using System;
 using UnityEngine;
 
@@ -2549,9 +2745,8 @@ public class Readme : ScriptableObject
         public string heading, text, linkText, url;
     }
 }
- 
- 
-===== FILE: TutorialInfo\Scripts\Editor\ReadmeEditor.cs ===== 
+.
+---------- FILE: Assets\TutorialInfo\Scripts\Editor\ReadmeEditor.cs ----------
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -2794,5 +2989,3 @@ public class ReadmeEditor : Editor
         return GUI.Button(position, label, LinkStyle);
     }
 }
- 
- 

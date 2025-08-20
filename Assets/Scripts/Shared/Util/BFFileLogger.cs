@@ -1,37 +1,31 @@
-﻿using System;
+﻿// Assets/Scripts/Shared/Util/BFFileLogger.cs
+#if UNITY_DEBUG || UNITY_EDITOR
+using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 
 namespace Game.Shared.Util
 {
     /// <summary>
-    /// Single, unified file logger for Editor + Client + Server.
-    /// Usage:
-    ///  - In Editor, BFFileLoggerEditor boots this automatically.
-    ///  - In builds, pass -logdir <dir> and -logprefix <client|server|listen> (BuildAll already does).
-    ///  - Alternatively call BFFileLogger.StartIfNeeded() once on startup.
-    /// The logger writes to "<logdir>/<Role>/<timestamp>_<prefix>.log".
+    /// File-Logger: Nur in Editor/Debug aktiv.
+    /// In Release wird ein No-Op-Stub (unten) kompiliert.
     /// </summary>
-    public static class BFFileLogger
+    public static class BfFileLogger
     {
         static readonly object _lock = new object();
         static StreamWriter _writer;
         static string _logFilePath;
         static bool _started;
 
-        // PlayerPrefs key used by the Editor bootstrap to persist the desired prefix
         const string PrefKeyPrefix = "BF_LogPrefix";
 
-        /// <summary>Set a desired prefix for the file name (e.g. "client", "server"). Optional.</summary>
         public static void SetPrefix(string prefix)
         {
             try { if (!string.IsNullOrEmpty(prefix)) PlayerPrefs.SetString(PrefKeyPrefix, prefix); }
             catch { /* ignore in headless */ }
         }
 
-        /// <summary>Start the logger once. Safe to call repeatedly.</summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         public static void StartIfNeeded()
         {
@@ -40,13 +34,11 @@ namespace Game.Shared.Util
 
             try
             {
-                // 1) Base directory
                 string argLogDir = GetArgValue("-logdir");
                 string baseDir;
                 if (!string.IsNullOrEmpty(argLogDir))
                 {
                     baseDir = argLogDir;
-                    // Relative path -> make it relative to the executable folder
                     if (!Path.IsPathRooted(baseDir))
                         baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, baseDir);
                 }
@@ -55,7 +47,6 @@ namespace Game.Shared.Util
                     baseDir = Path.Combine(Application.persistentDataPath, "Logs");
                 }
 
-                // 2) Role subfolder
                 string prefix = GetArgValue("-logprefix");
                 if (string.IsNullOrEmpty(prefix))
                 {
@@ -64,7 +55,6 @@ namespace Game.Shared.Util
                 }
                 if (string.IsNullOrEmpty(prefix)) prefix = GuessPrefix();
 
-                // Normalize for folder grouping
                 string roleFolder =
                     Application.isEditor ? "Editor" :
                     string.Equals(prefix, "server", StringComparison.OrdinalIgnoreCase) ? "Server" :
@@ -74,16 +64,13 @@ namespace Game.Shared.Util
                 string finalDir = Path.Combine(baseDir, roleFolder);
                 Directory.CreateDirectory(finalDir);
 
-                // 3) File name
                 string ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 string fileName = $"{ts}_{prefix.ToLowerInvariant()}.log";
                 _logFilePath = Path.Combine(finalDir, fileName);
 
-                // 4) Attach
                 _writer = new StreamWriter(File.Open(_logFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
                 {
-                    AutoFlush = true,
-                    NewLine = "\n"
+                    AutoFlush = true, NewLine = "\n"
                 };
 
                 Application.logMessageReceivedThreaded += OnLogMessage;
@@ -97,7 +84,6 @@ namespace Game.Shared.Util
             }
         }
 
-        /// <summary>Stop and dispose writer. Optional.</summary>
         public static void Stop()
         {
             if (!_started) return;
@@ -142,12 +128,9 @@ namespace Game.Shared.Util
 
         static string GuessPrefix()
         {
-            // Try to guess from command line or environment
             string mode = GetArgValue("-mode");
-            if (!string.IsNullOrEmpty(mode))
-                return mode.ToLowerInvariant();
+            if (!string.IsNullOrEmpty(mode)) return mode.ToLowerInvariant();
 
-            // If headless/batch likely server
             if (Application.isBatchMode && SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
                 return "server";
 
@@ -161,7 +144,7 @@ namespace Game.Shared.Util
                 var args = Environment.GetCommandLineArgs();
                 for (int i = 0; i < args.Length; i++)
                 {
-                    if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(args[i], name, System.StringComparison.OrdinalIgnoreCase))
                     {
                         if (i + 1 < args.Length) return args[i + 1];
                         return string.Empty;
@@ -175,3 +158,15 @@ namespace Game.Shared.Util
         static void Info(string tag, string msg) => Debug.Log($"[{tag}] {msg}");
     }
 }
+#else
+// Release: No-Op Stub, damit Aufrufe kompilieren
+namespace Game.Shared.Util
+{
+    public static class BFFileLogger
+    {
+        public static void SetPrefix(string prefix) { }
+        public static void StartIfNeeded() { }
+        public static void Stop() { }
+    }
+}
+#endif

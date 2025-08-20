@@ -1,7 +1,6 @@
 ﻿using Unity.Entities;
 using Unity.NetCode;
 using Unity.Transforms;
-using Unity.Mathematics;
 using UnityEngine;
 
 public sealed class FollowLocalPlayer : MonoBehaviour

@@ -1,7 +1,6 @@
 ﻿using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
-using Unity.Transforms;
 
 namespace Game.Shared.Authoring
 {

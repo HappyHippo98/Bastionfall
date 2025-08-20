@@ -8,13 +8,13 @@ namespace Game.Editor
     /// Boots BFFileLogger inside the Editor and provides a menu to open the log folder.
     /// </summary>
     [InitializeOnLoad]
-    public static class BFFileLoggerEditor
+    public static class BfFileLoggerEditor
     {
-        static BFFileLoggerEditor()
+        static BfFileLoggerEditor()
         {
             // Default the prefix to "client" for editor play sessions.
-            Game.Shared.Util.BFFileLogger.SetPrefix("client");
-            Game.Shared.Util.BFFileLogger.StartIfNeeded();
+            Game.Shared.Util.BfFileLogger.SetPrefix("client");
+            Game.Shared.Util.BfFileLogger.StartIfNeeded();
         }
 
         [MenuItem("Bastionfall/Logs/Open Editor Log Folder", priority = 50)]

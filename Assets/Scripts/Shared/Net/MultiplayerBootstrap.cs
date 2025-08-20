@@ -15,14 +15,20 @@ namespace Game.Shared.Net
     [Preserve]
     public class MultiplayerBootstrap : ClientServerBootstrap
     {
-        // Frühester Marker, um zu sehen, ob dieser Bootstrap im Player-Build vorhanden ist.
+        // Frühester Marker: nur in Debug/Editor loggen
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
-        static void EarlyMarker() => Debug.Log("[Bootstrap] Discovered MultiplayerBootstrap (BeforeSplashScreen)");
+        static void EarlyMarker()
+        {
+#if UNITY_DEBUG || UNITY_EDITOR
+            Debug.Log("[Bootstrap] Discovered MultiplayerBootstrap (BeforeSplashScreen)");
+#endif
+        }
 
         public override bool Initialize(string defaultWorldName)
         {
+#if UNITY_DEBUG || UNITY_EDITOR
             Debug.Log("[Bootstrap] Initialize() entered");
-
+#endif
             var s = Resources.Load<NetGameSettings>("NetGameSettings");
 
             // Defaults aus Settings
@@ -48,7 +54,7 @@ namespace Game.Shared.Net
                 }
             }
 #endif
-            // CLI-Overrides + Fallback über Environment (falls NetCode.CommandLine nicht greift)
+            // CLI-Overrides + Fallback
             if (CommandLine.TryGetString("mode", out var m1) && !string.IsNullOrWhiteSpace(m1)) mode = ParseMode(m1);
             else if (TryGetArgEnv("mode", out var m2)) mode = ParseMode(m2);
 
@@ -69,7 +75,6 @@ namespace Game.Shared.Net
             }
 #endif
 
-            // Nur im Editor versuchen, RequestedPlayType zu setzen
 #if UNITY_EDITOR
             TrySetRequestedPlayType(mode);
 #endif
@@ -81,20 +86,17 @@ namespace Game.Shared.Net
                     DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4.WithPort(port);
                     DefaultListenAddress  = NetworkEndpoint.AnyIpv4.WithPort(port);
                     break;
-
                 case RunMode.Client:
                     DefaultConnectAddress = SafeParse(address, port);
                     DefaultListenAddress  = NetworkEndpoint.AnyIpv4.WithPort(port);
                     break;
-
                 case RunMode.Server:
                 default:
-                    DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4.WithPort(port); // irrelevant für Server
+                    DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4.WithPort(port);
                     DefaultListenAddress  = NetworkEndpoint.AnyIpv4.WithPort(port);
                     break;
             }
 
-            // Doppelte Sicherung
             if (DefaultConnectAddress.Port == 0 && (mode == RunMode.Client || mode == RunMode.Listen))
             {
                 DefaultConnectAddress = SafeParse(address, port);
@@ -102,8 +104,10 @@ namespace Game.Shared.Net
                 Debug.LogWarning($"[Bootstrap] Connect had port=0 – fixed -> {address}:{port}");
             }
 
+#if UNITY_DEBUG || UNITY_EDITOR
             Debug.Log($"[Bootstrap] Mode={mode} Address={address} Port={port}");
             Debug.Log($"[Bootstrap] Connect={DefaultConnectAddress} Listen={DefaultListenAddress} AutoConnectPort={AutoConnectPort}");
+#endif
 
             switch (mode)
             {
@@ -123,7 +127,7 @@ namespace Game.Shared.Net
             }
         }
 
-        // ---------- helpers ----------
+        // helpers (unverändert) ...
         static RunMode ParseMode(string m) => m.ToLowerInvariant() switch
         {
             "server" => RunMode.Server, "client" => RunMode.Client,

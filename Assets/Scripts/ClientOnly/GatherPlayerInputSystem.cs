@@ -2,7 +2,6 @@
 using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
-using Game.Shared.Authoring;
 using ECSPlayerInput = Game.Shared.Authoring.PlayerInput;
 
 #if ENABLE_INPUT_SYSTEM

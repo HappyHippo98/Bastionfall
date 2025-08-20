@@ -35,7 +35,7 @@ namespace Game.Shared.Net
 
                 s.LogInfo("Ghosts", "Register '{0}'", name);
 
-                var cfg = new GhostPrefabCreation.Config { Name = name }; // wichtig: GhostName
+                var cfg = new GhostPrefabCreation.Config { Name = name };
                 GhostPrefabCreation.ConvertToGhostPrefab(s.EntityManager, entry.Prefab, cfg);
             }
 

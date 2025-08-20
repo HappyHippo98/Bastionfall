@@ -1,11 +1,12 @@
 ﻿// Assets/Scripts/ServerOnly/ServerSpawnPlayerOnInGameSystem.cs
+
+using Game.Shared.Authoring;
+using Game.Shared.Util;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
-using Game.Shared.Authoring;
-using Game.Shared.Util;
 
-namespace Game.Server
+namespace ServerOnly
 {
     public struct SpawnedPlayer : IComponentData
     {

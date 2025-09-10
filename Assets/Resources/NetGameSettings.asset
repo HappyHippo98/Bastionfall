@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Shared::Game.Shared.Config.NetGameSettings
   PlayProfile: 0
   ForceClientPlayType: 1
-  ConnectAddress: 95.216.202.118
+  ConnectAddress: 127.0.0.1
   Port: 7979
   DespawnOnDisconnect: 1
   PlayerRunMode: 1

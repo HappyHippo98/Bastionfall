@@ -11,11 +11,11 @@ GameObject:
   - component: {fileID: 8529868094984342692}
   - component: {fileID: 3387562940480491943}
   - component: {fileID: 3343810432182284123}
-  - component: {fileID: 1844346426874808048}
   - component: {fileID: 2457162585363331573}
   - component: {fileID: 1535399001207702750}
   - component: {fileID: 6470548015115121278}
   - component: {fileID: 2957348962835933074}
+  - component: {fileID: 1071699605443690713}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -94,29 +94,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &1844346426874808048
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8133848632073039145}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &2457162585363331573
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -180,3 +157,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1478bc132def433a8b5d8d39674ce296, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Shared::Game.Shared.Authoring.GhostNameMarker
+--- !u!114 &1071699605443690713
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8133848632073039145}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86e46786665d46c1bb7665160465de7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Shared::Game.Shared.Authoring.PlayerPhysicsAuthoring
+  Radius: 0.4
+  Height: 1.8
+  Mass: 80
+  LinearDamping: 0.1
+  AngularDamping: 4
+  MaxSpeed: 7
+  Accel: 40
+  Deaccel: 25
+  JumpSpeed: 5
+  Gravity: 9.81

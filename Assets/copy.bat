@@ -23,7 +23,7 @@ REM ---- Tree (ohne sort/findstr/PowerShell) ----
 set "SEEN=;"
 set "FOUND_CS=0"
 
-for /r "%ASSETS_DIR%" %%F in (*.cs) do (
+for /r "%ASSETS_DIR%\Scripts\" %%F in (*.cs) do (
   set "FOUND_CS=1"
   set "dir=%%~dpF"
   set "rel=!dir:%ASSETS_DIR%\=!"

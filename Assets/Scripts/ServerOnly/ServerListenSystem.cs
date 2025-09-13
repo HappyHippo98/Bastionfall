@@ -1,4 +1,6 @@
-﻿using Shared.Authoring.Network;
+﻿using Shared;
+using Shared.Authoring.Network;
+using Shared.Logging;
 using Shared.Network;
 using Unity.Burst;
 using Unity.Entities;
@@ -30,10 +32,7 @@ namespace ServerOnly
             state.EntityManager.AddComponentData(e, new NetworkStreamRequestListen { Endpoint = endpoint });
 
             _requested = true;
-
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            UnityEngine.Debug.Log($"[Server] Listening on 0.0.0.0:{cfg.Port} …");
-#endif
+            DevLog.InfoSystem<ServerListenSystem>("Server", $"Listening on 0.0.0.0:{cfg.Port} …");
         }
     }
 }

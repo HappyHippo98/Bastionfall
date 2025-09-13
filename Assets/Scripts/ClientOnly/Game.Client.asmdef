@@ -1,5 +1,5 @@
 {
-    "name": "Game.Client",
+    "name": "Client",
     "rootNamespace": "",
     "references": [
         "GUID:e2b02367093fdf0438946d4d863b5885",
@@ -11,7 +11,8 @@
         "GUID:2665a8d13d1b3f18800f46e256720795",
         "GUID:f2d49d9fa7e7eb3418e39723a7d3b92f",
         "GUID:75469ad4d38634e559750d17036d5f7c",
-        "GUID:63afb046c8423dd448ae7aba042ea63d"
+        "GUID:63afb046c8423dd448ae7aba042ea63d",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f"
     ],
     "includePlatforms": [
         "Editor",

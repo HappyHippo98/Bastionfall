@@ -1,54 +1,59 @@
-﻿using Shared.Authoring.Network;
+﻿using ClientOnly.Authoring;
+using Shared.Authoring.Network;
+using Shared.Logging;
 using Shared.Rpc;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 
 namespace ClientOnly
 {
+    /*
+    // Marker je Connection, damit wir nur 1x senden
+    public struct SentGoInGameTag : IComponentData {}
+
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
-    [BurstCompile]
     public partial struct ClientSendInGameRpcSystem : ISystem
     {
-        private bool _sentForCurrentConnection;
 
-        [BurstCompile] public void OnCreate(ref SystemState state)
+        public void OnCreate(ref SystemState s)
         {
-            state.RequireForUpdate<EnableNetcode>();
-            _sentForCurrentConnection = false;
+            s.RequireForUpdate<EnableNetcode>();
         }
 
-        [BurstCompile] public void OnUpdate(ref SystemState state)
+        public void OnUpdate(ref SystemState s)
         {
-            var q = SystemAPI.QueryBuilder()
-                .WithAll<NetworkId, NetworkStreamConnection>()
-                .Build();
+            var em  = s.EntityManager;
+            var q   = em.CreateEntityQuery(
+                ComponentType.ReadOnly<NetworkId>(),
+                ComponentType.ReadOnly<NetworkStreamConnection>(),
+                ComponentType.Exclude<SentGoInGameTag>()
+            );
+            if (q.IsEmptyIgnoreFilter) return;
 
-            var conns = q.ToEntityArray(Allocator.Temp);
-            if (conns.Length == 0)
-            {
-                _sentForCurrentConnection = false;
-                return;
-            }
-
-            if (_sentForCurrentConnection) return;
+            using var conns = q.ToEntityArray(Allocator.Temp);
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             foreach (var conn in conns)
             {
-                if (!state.EntityManager.HasComponent<NetworkStreamInGame>(conn))
-                {
-                    var rpc = state.EntityManager.CreateEntity();
-                    state.EntityManager.AddComponentData(rpc, new GoInGameRpc());
-                    state.EntityManager.AddComponentData(rpc, new SendRpcCommandRequest { TargetConnection = conn });
+                // 1) RPC an den Server (Client->Server: TargetConnection NICHT setzen)
+                var rpc = ecb.CreateEntity();
+                ecb.AddComponent(rpc, new GoInGameRpc());
+                ecb.AddComponent<SendRpcCommandRequest>(rpc);
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-                    UnityEngine.Debug.Log("[Client] Sent GoInGameRpc.");
-#endif
-                    _sentForCurrentConnection = true;
-                    break;
-                }
+                // 2) Lokal InGame markieren, damit Snapshots ankommen
+                if (!em.HasComponent<NetworkStreamInGame>(conn))
+                    ecb.AddComponent<NetworkStreamInGame>(conn);
+
+                // 3) Doppelsend verhindern
+                ecb.AddComponent<SentGoInGameTag>(conn);
+
+                DevLog.InfoSystem<ClientSendInGameRpcSystem>("Client", "Sent GoInGameRpc + marked local connection InGame.");
             }
+
+            ecb.Playback(em);
+            ecb.Dispose();
         }
     }
+    */
 }

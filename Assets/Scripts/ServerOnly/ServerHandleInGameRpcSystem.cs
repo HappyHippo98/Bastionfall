@@ -1,4 +1,6 @@
-﻿using Shared.Authoring.Network;
+﻿using Shared;
+using Shared.Authoring.Network;
+using Shared.Logging;
 using Shared.Rpc;
 using Unity.Burst;
 using Unity.Collections;
@@ -8,6 +10,8 @@ using Unity.NetCode;
 namespace ServerOnly
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ServerHandleInGameRpcSystem : ISystem
     {
@@ -22,6 +26,13 @@ namespace ServerOnly
                 .WithAll<GoInGameRpc, ReceiveRpcCommandRequest>()
                 .Build();
 
+            var count = q.CalculateEntityCount();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Shared.Logging.DevLog.InfoSystem<ServerHandleInGameRpcSystem>(
+                "Server", $"GoInGame: pending RPCs = {count}");
+#endif
+            if (count == 0) return;
+
             var rpcEntities = q.ToEntityArray(Allocator.Temp);
             var requests    = q.ToComponentDataArray<ReceiveRpcCommandRequest>(Allocator.Temp);
 
@@ -32,13 +43,18 @@ namespace ServerOnly
                 if (!state.EntityManager.HasComponent<NetworkStreamInGame>(conn))
                 {
                     state.EntityManager.AddComponent<NetworkStreamInGame>(conn);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-                    UnityEngine.Debug.Log("[Server] Connection marked InGame.");
-#endif
+                    Shared.Logging.DevLog.InfoSystem<ServerHandleInGameRpcSystem>(
+                        "Server", $"GoInGame: marked connection InGame (connEntity={conn})");
+                }
+                else
+                {
+                    Shared.Logging.DevLog.InfoSystem<ServerHandleInGameRpcSystem>(
+                        "Server", $"GoInGame: connection already InGame (connEntity={conn})");
                 }
 
                 state.EntityManager.DestroyEntity(rpcEntities[i]);
             }
         }
+
     }
 }

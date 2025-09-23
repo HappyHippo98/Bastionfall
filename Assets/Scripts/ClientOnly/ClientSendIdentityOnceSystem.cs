@@ -1,54 +1,69 @@
-﻿using Shared.Authoring.Network;
+﻿using ClientOnly.Identity;
+using Shared.Rpc;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
+using UnityEngine;
 
-namespace ClientOnly
+namespace ClientOnly.Systems
 {
-    // Einmal-Tag, damit wir die Identity nur einmal senden
-    public struct SentIdentityOnceTag : IComponentData
-    {
-    }
-
-    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
+    /// <summary>
+    /// Sendet pro Connection genau 1x die eigene Identity (GUID + Name).
+    /// Persist-Flag global via PlayerPrefs:
+    ///   BF_USE_PERSISTED_NAME = 0 (Default) → pro Start random Name
+    ///   BF_USE_PERSISTED_NAME = 1 → gespeicherter Name wiederverwenden
+    /// </summary>
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ClientEnterGameSystem))]
-    [UpdateBefore(typeof(RpcSystem))]
+    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ClientSendIdentityOnceSystem : ISystem
     {
+        private EntityQuery _unidentifiedConnections;
+
         public void OnCreate(ref SystemState state)
         {
-            state.RequireForUpdate<EnableNetcode>();
             state.RequireForUpdate<NetworkStreamInGame>();
+            _unidentifiedConnections = state.GetEntityQuery(new EntityQueryDesc
+            {
+                All  = new[] { ComponentType.ReadOnly<NetworkId>(), ComponentType.ReadOnly<NetworkStreamInGame>() },
+                None = new[] { ComponentType.ReadOnly<IdentitySentTag>() }
+            });
         }
 
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            var em = state.EntityManager;
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            if (_unidentifiedConnections.IsEmpty) return;
 
-            // Beispiel: pro Connection, die schon InGame ist und noch NICHT gesendet hat
-            foreach (var (_, conn) in SystemAPI
-                         .Query<NetworkId>()
-                         .WithAll<NetworkStreamConnection, NetworkStreamInGame>()
-                         .WithNone<SentIdentityOnceTag>()
-                         .WithEntityAccess())
+            var usePersistedName = PlayerPrefs.GetInt("BF_USE_PERSISTED_NAME", 0) == 1;
+
+            var ecb         = new EntityCommandBuffer(state.WorldUpdateAllocator);
+            var connections = _unidentifiedConnections.ToEntityArray(Allocator.Temp);
+            var guid        = ClientIdentity.GetOrCreateGuid();                // persistent (Editor/Player getrennt)
+            var name        = ClientIdentity.GetDisplayName(usePersistedName); // random oder persistent
+
+            foreach (var conn in connections)
             {
-                // 1) RPC-Entity erzeugen & Payload anheften
                 var rpc = ecb.CreateEntity();
-                // ecb.AddComponent(rpc, new YourIdentityRpc { Name = ..., ... });
+                ecb.AddComponent(rpc, new IdentifyPlayerRpc
+                {
+                    Guid = guid,
+                    DisplayName = name,
+                    UsedPersistedName = usePersistedName
+                });
+                ecb.AddComponent(rpc, new SendRpcCommandRequest { TargetConnection = conn });
+                ecb.AddComponent<IdentitySentTag>(conn);
 
-                // 2) Richtung Client->Server: KEIN TargetConnection setzen
-                ecb.AddComponent<SendRpcCommandRequest>(rpc);
-
-                // 3) Merken, dass wir für diese Connection gesendet haben
-                ecb.AddComponent<SentIdentityOnceTag>(conn);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                Debug.Log($"[Client] Identify → GUID={guid}, Name={name}, Persist={usePersistedName}");
+#endif
             }
 
-            ecb.Playback(em);
-            ecb.Dispose();
+            ecb.Playback(state.EntityManager);
         }
     }
+
+    public struct IdentitySentTag : IComponentData { }
 }

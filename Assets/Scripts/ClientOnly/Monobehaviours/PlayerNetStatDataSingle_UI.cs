@@ -10,19 +10,11 @@ namespace ClientOnly.Monobehaviours
         [SerializeField] private TextMeshProUGUI playerName;
         [SerializeField] private TextMeshProUGUI ping;
 
-
-        private void Awake()
-        {
-        }
-
-        private void Update()
-        {
-        }
-
-        public void Setup(PlayerNetStatsData data)
+        
+        public void Setup(PlayerNetStatsData data,PlayerIdentity identity)
         {
             networkID.text = data.NetworkId.ToString();
-            playerName.text = $"{Mathf.RoundToInt(data.RttMs)} ms";
+            playerName.text = identity.DisplayName.ToString();
             ping.text = data.Fps.ToString();
         }
     }

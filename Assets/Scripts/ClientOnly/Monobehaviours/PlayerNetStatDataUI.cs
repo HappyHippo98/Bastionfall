@@ -17,36 +17,35 @@ namespace ClientOnly.Monobehaviours
         private void Awake()
         {
             playerNetStatDataTemplate.gameObject.SetActive(false);
-            gameObject.SetActive(false);
+            playerNetStatDataContainer.gameObject.SetActive(false);
         }
 
         private void Update()
         {
-            Refresh();
-            /*
-            if (Input.GetKeyDown(KeyCode.T))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Tab))
             {
-                gameObject.SetActive(true);
+                playerNetStatDataContainer.gameObject.SetActive(true);
                 Refresh();
             }
-            if (Input.GetKeyUp(KeyCode.T))
+            if (UnityEngine.Input.GetKeyUp(KeyCode.Tab))
             {
                 ClearAll();
-                gameObject.SetActive(false);
+                playerNetStatDataContainer.gameObject.SetActive(false);
             }
 
-            if (gameObject.activeSelf)
+            if (playerNetStatDataContainer.gameObject.activeSelf)
                 Refresh();
-        */
+        
         }
 
         private void Refresh()
         {
             var em = ClientServerBootstrap.ClientWorld.EntityManager;
-            var q = em.CreateEntityQuery(ComponentType.ReadOnly<PlayerNetStatsData>());
+            var q = em.CreateEntityQuery(ComponentType.ReadOnly<PlayerNetStatsData>(),ComponentType.ReadOnly<PlayerIdentity>());
 
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var stats = q.ToComponentDataArray<PlayerNetStatsData>(Allocator.Temp);
+            using var identities = q.ToComponentDataArray<PlayerIdentity>(Allocator.Temp);
 
             var seen = new HashSet<Entity>();
             for (var i = 0; i < ents.Length; i++)
@@ -62,7 +61,7 @@ namespace ClientOnly.Monobehaviours
                 }
 
                 var ui = row.GetComponent<PlayerNetStatDataSingleUI>();
-                ui.Setup(stats[i]);
+                ui.Setup(stats[i],identities[i]);
             }
 
             var toRemove = new List<Entity>();

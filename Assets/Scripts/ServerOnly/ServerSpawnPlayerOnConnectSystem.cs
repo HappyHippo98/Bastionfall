@@ -70,6 +70,14 @@ namespace ServerOnly
             // --- Phase 1: Spawn QUEUEN (nur ECB, nichts am EntityManager anfassen) ---
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
+            var q = SystemAPI.QueryBuilder()
+                .WithAll<NetworkId, NetworkStreamInGame>()
+                .WithNone<PlayerSpawnedTag>()
+                .Build();
+            
+            using var ents = q.ToEntityArray(state.WorldUpdateAllocator);
+            using var ids  = q.ToComponentDataArray<NetworkId>(state.WorldUpdateAllocator);
+            
             foreach (var (nid, connEntity) in SystemAPI
                          .Query<RefRO<NetworkId>>()
                          .WithAll<NetworkStreamInGame>()

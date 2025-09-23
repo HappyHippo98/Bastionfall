@@ -5,28 +5,28 @@ using UnityEngine;
 
 namespace Shared.Authoring.Monitoring
 {
-    public class PlayerIdentityAuthoring : MonoBehaviour
+    
+    public sealed class PlayerIdentityAuthoring : MonoBehaviour
     {
-        public string defaultName = "Player";
-
-        private class Baker : Baker<PlayerIdentityAuthoring>
+        private sealed class Baker : Baker<PlayerIdentityAuthoring>
         {
-            public override void Bake(PlayerIdentityAuthoring a)
+            public override void Bake(PlayerIdentityAuthoring authoring)
             {
-                var e = GetEntity(TransformUsageFlags.Dynamic); // Ghost wird gespawned
+                var e = GetEntity(TransformUsageFlags.Dynamic);
                 AddComponent(e, new PlayerIdentity
                 {
-                    Guid = default, // Server füllt via RPC
-                    Name = a.defaultName
+                    DisplayName = default,
+                    Guid = default
                 });
             }
         }
     }
 
-    // Replizierte Ghost-Daten (Server-autorisiert)
+ 
+    [GhostComponent(PrefabType = GhostPrefabType.All)]
     public struct PlayerIdentity : IComponentData
     {
+        [GhostField] public FixedString64Bytes  DisplayName;
         [GhostField] public FixedString128Bytes Guid;
-        [GhostField] public FixedString64Bytes Name;
     }
 }

@@ -1,57 +1,57 @@
-﻿using Shared.Authoring.Monitoring;
-using Shared.Authoring.Network;
+﻿using Shared.Authoring.Monitoring; // PlayerIdentity (Ghost-Komponente)
 using Shared.Rpc;
+using Unity.Burst;
 using Unity.Entities;
 using Unity.NetCode;
+using UnityEngine;
 
-namespace ServerOnly
+namespace ServerOnly.Systems
 {
+    /// <summary>
+    /// Server: empfängt IdentifyPlayerRpc und speichert die Identity an der Connection.
+    /// (Von dort kopiert ServerCopyIdentityToGhostSystem sie einmalig auf den Player-Ghost.)
+    /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(RpcSystem))]
+    [BurstCompile]
     public partial struct ServerHandleIdentifyPlayerRpcSystem : ISystem
     {
-        private EntityQuery _playersQ;
-
+        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            state.RequireForUpdate<EnableNetcode>();
-            _playersQ = state.GetEntityQuery(
-                ComponentType.ReadOnly<PlayerIdentity>(),
-                ComponentType.ReadOnly<GhostOwner>());
+            state.RequireForUpdate<NetworkStreamInGame>();
         }
 
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            var em = state.EntityManager;
+            var em  = state.EntityManager;
             var ecb = new EntityCommandBuffer(state.WorldUpdateAllocator);
 
-            if (SystemAPI.QueryBuilder().WithAll<IdentifyPlayerRpc, ReceiveRpcCommandRequest>().Build()
-                .IsEmptyIgnoreFilter)
-                return;
-
-            using var owners = _playersQ.ToComponentDataArray<GhostOwner>(state.WorldUpdateAllocator);
-            using var ents = _playersQ.ToEntityArray(state.WorldUpdateAllocator);
-
-            foreach (var (rpc, req, rpcEnt) in SystemAPI
+            foreach (var (rpc, reqSrc, rpcEntity) in SystemAPI
                          .Query<RefRO<IdentifyPlayerRpc>, RefRO<ReceiveRpcCommandRequest>>()
                          .WithEntityAccess())
             {
-                // Owner immer aus SourceConnection bestimmen (wie bei NetStats). :contentReference[oaicite:1]{index=1}
-                var ownerId = -1;
-                if (em.HasComponent<NetworkId>(req.ValueRO.SourceConnection))
-                    ownerId = em.GetComponentData<NetworkId>(req.ValueRO.SourceConnection).Value;
+                var conn = reqSrc.ValueRO.SourceConnection;
 
-                if (ownerId != -1)
-                    for (var i = 0; i < ents.Length; i++)
-                    {
-                        if (owners[i].NetworkId != ownerId) continue;
-                        var id = em.GetComponentData<PlayerIdentity>(ents[i]);
-                        id.Guid = rpc.ValueRO.Guid;
-                        id.Name = rpc.ValueRO.Name;
-                        em.SetComponentData(ents[i], id);
-                        break;
-                    }
+                // An der Connection merken (Server-seitig)
+                var id = new PlayerIdentity
+                {
+                    DisplayName = rpc.ValueRO.DisplayName,
+                    Guid        = rpc.ValueRO.Guid
+                };
 
-                ecb.DestroyEntity(rpcEnt);
+                if (!em.HasComponent<PlayerIdentity>(conn))
+                    ecb.AddComponent(conn, id);
+                else
+                    ecb.SetComponent(conn, id);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                var ownerId = em.HasComponent<NetworkId>(conn) ? em.GetComponentData<NetworkId>(conn).Value : -1;
+                Debug.Log($"[Server] Identity received ← Owner={ownerId}, GUID={id.Guid}, Name={id.DisplayName}");
+#endif
+                ecb.DestroyEntity(rpcEntity); // RPC verbrauchen
             }
 
             ecb.Playback(em);

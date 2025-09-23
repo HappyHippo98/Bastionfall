@@ -1,17 +1,19 @@
-﻿using Shared.Bootstrap;
-using Shared;
+﻿using System;
+using System.IO;
 using Shared.Logging;
+using Shared.Network;
+using Shared.Time;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Networking.Transport;
 using UnityEngine;
-using System;
-using System.IO;
-using Shared.Network;
+using UnityEngine.Scripting;
 
 namespace Shared.Bootstrap
 {
+    [Preserve]
     public class NetworkBootstrap : ClientServerBootstrap
     {
         public override bool Initialize(string defaultWorldName)
@@ -23,32 +25,38 @@ namespace Shared.Bootstrap
             if (NetArgs.IsServer)
             {
                 var server = CreateServerWorld("ServerWorld");
+                EnsureTickRate(server);
                 EnsureSingleRuntimeConfig(server);
-                AppLog.For("Bootstrap","NetworkBootstrap").Info($"ServerWorld created: {server.Name}");
+                AppLog.For("Bootstrap", "NetworkBootstrap").Info($"ServerWorld created: {server.Name}");
             }
+
             if (NetArgs.IsClient && !NetArgs.NoGui)
             {
                 var client = CreateClientWorld("ClientWorld");
+                EnsureTickRate(client);
                 EnsureSingleRuntimeConfig(client);
-                AppLog.For("Bootstrap","NetworkBootstrap").Info($"ClientWorld created: {client.Name}");
-            }
-            for (int i=0;i<NetArgs.ThinClientCount;i++)
-            {
-                var thin = CreateThinClientWorld();
-                EnsureSingleRuntimeConfig(thin);
-                AppLog.For("Bootstrap","NetworkBootstrap").Info($"ThinClientWorld created: {thin.Name}");
+                AppLog.For("Bootstrap", "NetworkBootstrap").Info($"ClientWorld created: {client.Name}");
             }
 
-            AppLog.For("Bootstrap","NetworkBootstrap")
-                  .Info($"Args => server={NetArgs.IsServer}, client={NetArgs.IsClient}, thin={NetArgs.ThinClientCount}, host={NetArgs.Host}, port={NetArgs.Port}, nogui={NetArgs.NoGui}, unitycapture={NetArgs.UnityCapture}, apploglevel={NetArgs.AppLogLevel}, unityloglevel={NetArgs.UnityLogLevel}");
+            for (var i = 0; i < NetArgs.ThinClientCount; i++)
+            {
+                var thin = CreateThinClientWorld();
+                EnsureTickRate(thin);
+                EnsureSingleRuntimeConfig(thin);
+                AppLog.For("Bootstrap", "NetworkBootstrap").Info($"ThinClientWorld created: {thin.Name}");
+            }
+
+            AppLog.For("Bootstrap", "NetworkBootstrap")
+                .Info(
+                    $"Args => server={NetArgs.IsServer}, client={NetArgs.IsClient}, thin={NetArgs.ThinClientCount}, host={NetArgs.Host}, port={NetArgs.Port}, nogui={NetArgs.NoGui}, unitycapture={NetArgs.UnityCapture}, apploglevel={NetArgs.AppLogLevel}, unityloglevel={NetArgs.UnityLogLevel}");
 
             return true;
         }
 
-        static void ConfigureLogSinks()
+        private static void ConfigureLogSinks()
         {
-            string role = (NetArgs.IsServer && !NetArgs.IsClient && NetArgs.ThinClientCount==0) ? "server"
-                : (!NetArgs.IsServer && (NetArgs.IsClient || NetArgs.ThinClientCount>0))    ? "client"
+            var role = NetArgs.IsServer && !NetArgs.IsClient && NetArgs.ThinClientCount == 0 ? "server"
+                : !NetArgs.IsServer && (NetArgs.IsClient || NetArgs.ThinClientCount > 0) ? "client"
                 : "multi";
 
             // Standardbasis für Logs:
@@ -75,24 +83,49 @@ namespace Shared.Bootstrap
                 ? Path.Combine(baseDir, $"unity-{role}-{DateTime.Now:yyyyMMdd-HHmmss}.log")
                 : NetArgs.UnityLogFile;
 
-            AppLog.ConfigureAppFile(appPath,   NetArgs.AppLogLevel);
+            AppLog.ConfigureAppFile(appPath, NetArgs.AppLogLevel);
             AppLog.ConfigureUnityFile(unityPath, NetArgs.UnityLogLevel);
             AppLog.SetUnityCapture(NetArgs.UnityCapture);
             AppLog.HookUnityCapture();
 
-            AppLog.For("Bootstrap","NetworkBootstrap").Info($"Log files → app: '{AppLog.AppFilePath}', unity: '{AppLog.UnityFilePath}'");
+            AppLog.For("Bootstrap", "NetworkBootstrap")
+                .Info($"Log files → app: '{AppLog.AppFilePath}', unity: '{AppLog.UnityFilePath}'");
         }
 
-
-        static void EnsureSingleRuntimeConfig(World world)
+        private static void EnsureTickRate(World world)
         {
             var em = world.EntityManager;
-            var q  = em.CreateEntityQuery(ComponentType.ReadWrite<NetRuntimeConfig>());
+            var hz = (int)math.round(TickDefaults.SystemTicksPerSecond);
+            var rate = new ClientServerTickRate
+            {
+                SimulationTickRate = hz,
+                NetworkTickRate = hz,
+                MaxSimulationStepsPerFrame = 4
+            };
+
+            var q = em.CreateEntityQuery(ComponentType.ReadWrite<ClientServerTickRate>());
+            if (q.CalculateEntityCount() == 0)
+            {
+                var e = em.CreateEntity(typeof(ClientServerTickRate));
+                em.SetComponentData(e, rate);
+            }
+            else
+            {
+                em.SetComponentData(q.GetSingletonEntity(), rate);
+            }
+
+            q.Dispose();
+        }
+
+        private static void EnsureSingleRuntimeConfig(World world)
+        {
+            var em = world.EntityManager;
+            var q = em.CreateEntityQuery(ComponentType.ReadWrite<NetRuntimeConfig>());
             var cfg = new NetRuntimeConfig
             {
                 ServerEndpoint = NetworkEndpoint.Parse(NetArgs.Host, NetArgs.Port),
-                Port           = NetArgs.Port,
-                RetrySeconds   = NetConfig.RetrySeconds
+                Port = NetArgs.Port,
+                RetrySeconds = NetConfig.RetrySeconds
             };
 
             var count = q.CalculateEntityCount();
@@ -105,9 +138,10 @@ namespace Shared.Bootstrap
             {
                 var entities = q.ToEntityArray(Allocator.Temp);
                 em.SetComponentData(entities[0], cfg);
-                for (int i=1;i<entities.Length;i++) em.DestroyEntity(entities[i]);
+                for (var i = 1; i < entities.Length; i++) em.DestroyEntity(entities[i]);
                 entities.Dispose();
             }
+
             q.Dispose();
         }
     }

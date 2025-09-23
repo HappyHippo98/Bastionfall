@@ -1,5 +1,4 @@
-﻿using Shared;
-using Shared.Authoring.Network;
+﻿using Shared.Authoring.Network;
 using Shared.Logging;
 using Shared.Network;
 using Unity.Burst;
@@ -10,18 +9,22 @@ using Unity.Networking.Transport;
 namespace ServerOnly
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateBefore(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ServerListenSystem : ISystem
     {
         private bool _requested;
 
-        [BurstCompile] public void OnCreate(ref SystemState state)
+        [BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EnableNetcode>();
             state.RequireForUpdate<NetRuntimeConfig>();
         }
 
-        [BurstCompile] public void OnUpdate(ref SystemState state)
+        [BurstCompile]
+        public void OnUpdate(ref SystemState state)
         {
             if (_requested) return;
 

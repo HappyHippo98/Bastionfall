@@ -4,7 +4,6 @@ namespace ClientOnly.Input
 {
     public partial class InputSystem : SystemBase
     {
-
         private InputControls _inputControls;
 
 

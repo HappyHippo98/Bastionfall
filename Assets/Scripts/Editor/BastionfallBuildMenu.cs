@@ -14,47 +14,102 @@ namespace Editor
     public static class BastionFallBuildMenu
     {
         // ===== Menü =====
-        [MenuItem("BastionFall/Build/Debug/Windows Client")]  public static void Debug_WinClient()  => BuildOne(Config.Debug,  Platform.WindowsClient, true);
-        [MenuItem("BastionFall/Build/Debug/Windows Server")]  public static void Debug_WinServer()  => BuildOne(Config.Debug,  Platform.WindowsServer, true);
-        [MenuItem("BastionFall/Build/Debug/Linux Client")]    public static void Debug_LinClient()  => BuildOne(Config.Debug,  Platform.LinuxClient,   true);
-        [MenuItem("BastionFall/Build/Debug/Linux Server")]    public static void Debug_LinServer()  => BuildOne(Config.Debug,  Platform.LinuxServer,   true);
+        [MenuItem("BastionFall/Build/Debug/Windows Client")]
+        public static void Debug_WinClient()
+        {
+            BuildOne(Config.Debug, Platform.WindowsClient, true);
+        }
+
+        [MenuItem("BastionFall/Build/Debug/Windows Server")]
+        public static void Debug_WinServer()
+        {
+            BuildOne(Config.Debug, Platform.WindowsServer, true);
+        }
+
+        [MenuItem("BastionFall/Build/Debug/Linux Client")]
+        public static void Debug_LinClient()
+        {
+            BuildOne(Config.Debug, Platform.LinuxClient, true);
+        }
+
+        [MenuItem("BastionFall/Build/Debug/Linux Server")]
+        public static void Debug_LinServer()
+        {
+            BuildOne(Config.Debug, Platform.LinuxServer, true);
+        }
 
         [MenuItem("BastionFall/Build/Debug/Bundles/WindowsBundle")]
-        public static void Debug_Bundle_Windows() => BuildBundle(Config.Debug, "Windows",
-            Platform.WindowsClient, Platform.WindowsServer);
+        public static void Debug_Bundle_Windows()
+        {
+            BuildBundle(Config.Debug, "Windows",
+                Platform.WindowsClient, Platform.WindowsServer);
+        }
 
         [MenuItem("BastionFall/Build/Debug/Bundles/LinuxBundle")]
-        public static void Debug_Bundle_Linux() => BuildBundle(Config.Debug, "Linux",
-            Platform.LinuxClient, Platform.LinuxServer);
+        public static void Debug_Bundle_Linux()
+        {
+            BuildBundle(Config.Debug, "Linux",
+                Platform.LinuxClient, Platform.LinuxServer);
+        }
 
         [MenuItem("BastionFall/Build/Debug/Bundles/CompleteBundle")]
-        public static void Debug_Bundle_Complete() => BuildBundle(Config.Debug, "Complete",
-            Platform.WindowsClient, Platform.WindowsServer, Platform.LinuxClient, Platform.LinuxServer);
+        public static void Debug_Bundle_Complete()
+        {
+            BuildBundle(Config.Debug, "Complete",
+                Platform.WindowsClient, Platform.WindowsServer, Platform.LinuxClient, Platform.LinuxServer);
+        }
 
-        [MenuItem("BastionFall/Build/Release/Windows Client")]  public static void Rel_WinClient()  => BuildOne(Config.Release, Platform.WindowsClient, true);
-        [MenuItem("BastionFall/Build/Release/Windows Server")]  public static void Rel_WinServer()  => BuildOne(Config.Release, Platform.WindowsServer, true);
-        [MenuItem("BastionFall/Build/Release/Linux Client")]    public static void Rel_LinClient()  => BuildOne(Config.Release, Platform.LinuxClient,   true);
-        [MenuItem("BastionFall/Build/Release/Linux Server")]    public static void Rel_LinServer()  => BuildOne(Config.Release, Platform.LinuxServer,   true);
+        [MenuItem("BastionFall/Build/Release/Windows Client")]
+        public static void Rel_WinClient()
+        {
+            BuildOne(Config.Release, Platform.WindowsClient, true);
+        }
+
+        [MenuItem("BastionFall/Build/Release/Windows Server")]
+        public static void Rel_WinServer()
+        {
+            BuildOne(Config.Release, Platform.WindowsServer, true);
+        }
+
+        [MenuItem("BastionFall/Build/Release/Linux Client")]
+        public static void Rel_LinClient()
+        {
+            BuildOne(Config.Release, Platform.LinuxClient, true);
+        }
+
+        [MenuItem("BastionFall/Build/Release/Linux Server")]
+        public static void Rel_LinServer()
+        {
+            BuildOne(Config.Release, Platform.LinuxServer, true);
+        }
 
         [MenuItem("BastionFall/Build/Release/Bundles/WindowsBundle")]
-        public static void Rel_Bundle_Windows() => BuildBundle(Config.Release, "Windows",
-            Platform.WindowsClient, Platform.WindowsServer);
+        public static void Rel_Bundle_Windows()
+        {
+            BuildBundle(Config.Release, "Windows",
+                Platform.WindowsClient, Platform.WindowsServer);
+        }
 
         [MenuItem("BastionFall/Build/Release/Bundles/LinuxBundle")]
-        public static void Rel_Bundle_Linux() => BuildBundle(Config.Release, "Linux",
-            Platform.LinuxClient, Platform.LinuxServer);
+        public static void Rel_Bundle_Linux()
+        {
+            BuildBundle(Config.Release, "Linux",
+                Platform.LinuxClient, Platform.LinuxServer);
+        }
 
         [MenuItem("BastionFall/Build/Release/Bundles/CompleteBundle")]
-        public static void Rel_Bundle_Complete() => BuildBundle(Config.Release, "Complete",
-            Platform.WindowsClient, Platform.WindowsServer, Platform.LinuxClient, Platform.LinuxServer);
+        public static void Rel_Bundle_Complete()
+        {
+            BuildBundle(Config.Release, "Complete",
+                Platform.WindowsClient, Platform.WindowsServer, Platform.LinuxClient, Platform.LinuxServer);
+        }
 
         // Optionaler Quick-Button im Menü
         [MenuItem("BastionFall/Dev/Regenerate Project Files Now")]
-        public static void RegenerateNow() => QueueProjectSync("Manual menu");
-
-        // ===== Impl =====
-        private enum Config   { Debug, Release }
-        private enum Platform { WindowsClient, WindowsServer, LinuxClient, LinuxServer }
+        public static void RegenerateNow()
+        {
+            QueueProjectSync("Manual menu");
+        }
 
         private static void BuildBundle(Config cfg, string name, params Platform[] seq)
         {
@@ -71,6 +126,7 @@ namespace Editor
                     Debug.LogError($"Bundle Build FAILED {label} at {PlatToDisplay(p)}");
                     return;
                 }
+
                 if (p == Platform.WindowsClient) builtWinClient = true;
                 if (p == Platform.WindowsServer) builtWinServer = true;
             }
@@ -82,6 +138,7 @@ namespace Editor
             Debug.Log($"Build Completed {label} in {Format(sw.Elapsed)}");
         }
 
+
         private static bool BuildOne(Config cfg, Platform plat, bool reveal)
         {
             var (target, sub, folder, file) = GetBuildInfo(plat);
@@ -92,10 +149,13 @@ namespace Editor
                 return false;
             }
 
-            // --- Save current state ---
-            var prevTarget    = EditorUserBuildSettings.activeBuildTarget;
-            var prevGroup     = BuildPipeline.GetBuildTargetGroup(prevTarget);
+            var prevTarget = EditorUserBuildSettings.activeBuildTarget;
+            var prevGroup = BuildPipeline.GetBuildTargetGroup(prevTarget);
             var prevSubtarget = EditorUserBuildSettings.standaloneBuildSubtarget;
+
+            var prevDevelopment = EditorUserBuildSettings.development;
+            var prevAllowDebugging = EditorUserBuildSettings.allowDebugging;
+            var prevConnectProfiler = EditorUserBuildSettings.connectProfiler;
 
             try
             {
@@ -104,6 +164,11 @@ namespace Editor
 
                 EditorUserBuildSettings.standaloneBuildSubtarget = sub;
 
+                var isDebug = cfg == Config.Debug;
+                EditorUserBuildSettings.development = isDebug;
+                EditorUserBuildSettings.allowDebugging = isDebug;
+                EditorUserBuildSettings.connectProfiler = isDebug;
+
                 var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
                 if (scenes.Length == 0)
                 {
@@ -111,9 +176,9 @@ namespace Editor
                     return false;
                 }
 
-                var baseDir  = Path.Combine("Builds", cfg.ToString(), folder);
+                var baseDir = Path.Combine("Builds", cfg.ToString(), folder);
                 EnsureDir(baseDir);
-                var exePath  = Path.Combine(baseDir, file);
+                var exePath = Path.Combine(baseDir, file);
 
                 var configName = $"{cfg} {PlatToDisplay(plat)}";
                 Debug.Log($"Build Started {configName}");
@@ -125,8 +190,9 @@ namespace Editor
                     target = target,
                     locationPathName = exePath,
                     subtarget = (int)sub,
-                    options = cfg == Config.Debug
-                        ? BuildOptions.Development | BuildOptions.CompressWithLz4
+                    options = isDebug
+                        ? BuildOptions.Development | BuildOptions.AllowDebugging | BuildOptions.ConnectWithProfiler |
+                          BuildOptions.CompressWithLz4
                         : BuildOptions.CompressWithLz4HC
                 };
 
@@ -146,21 +212,24 @@ namespace Editor
             }
             finally
             {
-                // --- Restore Editor state ---
                 if (EditorUserBuildSettings.standaloneBuildSubtarget != prevSubtarget)
                     EditorUserBuildSettings.standaloneBuildSubtarget = prevSubtarget;
 
                 if (EditorUserBuildSettings.activeBuildTarget != prevTarget)
                     EditorUserBuildSettings.SwitchActiveBuildTarget(prevGroup, prevTarget);
 
-                // 🔁 immer nach JEDEM Build: Projekt-Dateien & Assemblies regenerieren
+                EditorUserBuildSettings.development = prevDevelopment;
+                EditorUserBuildSettings.allowDebugging = prevAllowDebugging;
+                EditorUserBuildSettings.connectProfiler = prevConnectProfiler;
+
                 QueueProjectSync($"Post-build ({PlatToDisplay(plat)})");
             }
         }
 
+
         private static (BuildTarget, StandaloneBuildSubtarget, string folder, string file) GetBuildInfo(Platform p)
         {
-            string product = Application.productName;
+            var product = Application.productName;
             switch (p)
             {
                 case Platform.WindowsClient:
@@ -185,39 +254,27 @@ namespace Editor
         {
             var dir = Path.GetDirectoryName(exePath)!;
             var exe = Path.GetFileName(exePath);
-            string commonArgs = "-unitycapture true -apploglevel info -unityloglevel warn";
+            var commonArgs = "-unitycapture true -apploglevel info -unityloglevel warn";
 
             if (plat == Platform.WindowsClient || plat == Platform.WindowsServer)
             {
-                string args = plat == Platform.WindowsClient
+                var args = plat == Platform.WindowsClient
                     ? $"-client -host 127.0.0.1 -port 7979 {commonArgs}"
                     : $"-server -nogui -port 7979 {commonArgs}";
 
-                string batName = plat == Platform.WindowsClient ? "RunClient.bat" : "RunServer.bat";
-                var bat = string.Join("\r\n", new[]
-                {
-                    "@echo off",
-                    "setlocal",
-                    "pushd %~dp0",
-                    $"\"{exe}\" {args}",
-                    "popd"
-                });
+                var batName = plat == Platform.WindowsClient ? "RunClient.bat" : "RunServer.bat";
+                var bat = string.Join("\r\n", "@echo off", "setlocal", "pushd %~dp0", $"\"{exe}\" {args}", "popd");
                 File.WriteAllText(Path.Combine(dir, batName), bat);
             }
             else
             {
-                string args = plat == Platform.LinuxClient
+                var args = plat == Platform.LinuxClient
                     ? $"-client -host 127.0.0.1 -port 7979 {commonArgs}"
                     : $"-server -nogui -port 7979 {commonArgs}";
 
-                string shName = plat == Platform.LinuxClient ? "run_client.sh" : "run_server.sh";
-                var sh = string.Join("\n", new[]
-                {
-                    "#!/usr/bin/env bash",
-                    "set -e",
-                    "DIR=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"",
-                    $"\"${{DIR}}/{exe}\" {args}"
-                });
+                var shName = plat == Platform.LinuxClient ? "run_client.sh" : "run_server.sh";
+                var sh = string.Join("\n", "#!/usr/bin/env bash", "set -e",
+                    "DIR=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"", $"\"${{DIR}}/{exe}\" {args}");
                 var path = Path.Combine(dir, shName);
                 File.WriteAllText(path, sh);
             }
@@ -230,18 +287,11 @@ namespace Editor
             var exeServer = Path.Combine(root, "WindowsServer", $"{Application.productName}_server.exe");
             if (!File.Exists(exeClient) || !File.Exists(exeServer)) return;
 
-            var bat = string.Join("\r\n", new[]
-            {
-                "@echo off",
-                "setlocal",
-                "pushd %~dp0",
-                "echo Starting Windows Server...",
+            var bat = string.Join("\r\n", "@echo off", "setlocal", "pushd %~dp0", "echo Starting Windows Server...",
                 $"start \"\" \"WindowsServer\\{Path.GetFileName(exeServer)}\" -server -nogui -port 7979 -unitycapture true -apploglevel info -unityloglevel warn",
-                "timeout /t 1 >nul",
-                "echo Starting Windows Client...",
+                "timeout /t 1 >nul", "echo Starting Windows Client...",
                 $"start \"\" \"WindowsClient\\{Path.GetFileName(exeClient)}\" -client -host 127.0.0.1 -port 7979 -unitycapture true -apploglevel info -unityloglevel warn",
-                "popd"
-            });
+                "popd");
             File.WriteAllText(Path.Combine(root, "Run_Windows_ClientServer.bat"), bat);
         }
 
@@ -264,10 +314,8 @@ namespace Editor
                     // 3) .sln/.csproj neu generieren – offizieller, public Weg
                     //    (öffnet den Standard-Editor kurz; reicht, um die Projektdateien zu erneuern)
                     if (!Application.isBatchMode)
-                    {
                         // Dieser Menüpunkt macht genau das, was "Regenerate project files" tut.
                         EditorApplication.ExecuteMenuItem("Assets/Open C# Project");
-                    }
 
                     Debug.Log("[Build/Post] Project sync done.");
                 }
@@ -279,14 +327,17 @@ namespace Editor
         }
 
         // ===== Utils =====
-        private static string PlatToDisplay(Platform p) => p switch
+        private static string PlatToDisplay(Platform p)
         {
-            Platform.WindowsClient => "Windows Client",
-            Platform.WindowsServer => "Windows Server",
-            Platform.LinuxClient   => "Linux Client",
-            Platform.LinuxServer   => "Linux Server",
-            _ => p.ToString()
-        };
+            return p switch
+            {
+                Platform.WindowsClient => "Windows Client",
+                Platform.WindowsServer => "Windows Server",
+                Platform.LinuxClient => "Linux Client",
+                Platform.LinuxServer => "Linux Server",
+                _ => p.ToString()
+            };
+        }
 
         private static void EnsureDir(string path)
         {
@@ -298,6 +349,21 @@ namespace Editor
             if (t.TotalSeconds < 60) return $"{(int)t.TotalSeconds}s";
             if (t.TotalMinutes < 60) return $"{t.Minutes:D2}:{t.Seconds:D2}";
             return $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}";
+        }
+
+        // ===== Impl =====
+        private enum Config
+        {
+            Debug,
+            Release
+        }
+
+        private enum Platform
+        {
+            WindowsClient,
+            WindowsServer,
+            LinuxClient,
+            LinuxServer
         }
     }
 }

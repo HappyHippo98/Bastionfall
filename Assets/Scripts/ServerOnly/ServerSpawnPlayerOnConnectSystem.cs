@@ -1,59 +1,71 @@
 ﻿using Shared.Authoring;
-using Shared.Authoring.Monitoring;
 using Shared.Authoring.Network;
+using Shared.Logging;
+using Shared.Util.Timing;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
-using UnityEngine;
 
 namespace ServerOnly
 {
-    // Marker auf Connection: „für diese Connection wurde schon gespawnt“
-    public struct PlayerSpawnedTag : IComponentData {}
+    public struct PlayerSpawnedTag : IComponentData
+    {
+    }
 
-    // Temp-Logdaten, damit wir NACH Playback sauber loggen können
     public struct PlayerSpawnLog : IComponentData
     {
-        public Entity Player;   // deferred -> wird beim Playback automatisch remapped
+        public Entity Player;
         public int OwnerNid;
     }
 
+    [RunEveryServerTicks(30)]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ServerHandleInGameRpcSystem))]
+    [BurstCompile]
     public partial struct ServerSpawnPlayerOnConnectSystem : ISystem
     {
+        private RunEveryTicksGuard<ServerSpawnPlayerOnConnectSystem> _tickSystem;
+
         private EntityQuery _prefabQ;
         private EntityQuery _connQ;
         private EntityQuery _logQ;
 
+        [BurstDiscard]
         public void OnCreate(ref SystemState state)
         {
+            _tickSystem.InitFromAttribute();
+
             state.RequireForUpdate<EnableNetcode>();
 
-            _prefabQ = state.GetEntityQuery(ComponentType.ReadOnly<PlayerPrefabRef>());
-            _connQ   = state.GetEntityQuery(
+            _prefabQ = state.GetEntityQuery(ComponentType.ReadOnly<PlayerPrefab>());
+            _connQ = state.GetEntityQuery(
                 ComponentType.ReadOnly<NetworkId>(),
                 ComponentType.ReadOnly<NetworkStreamInGame>());
 
-            _logQ    = state.GetEntityQuery(ComponentType.ReadOnly<PlayerSpawnLog>());
+            _logQ = state.GetEntityQuery(ComponentType.ReadOnly<PlayerSpawnLog>());
 
             state.RequireForUpdate(_prefabQ);
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            var em    = state.EntityManager;
-            var world = state.WorldUnmanaged.Name;
+            if (!SystemAPI.TryGetSingleton<NetworkTime>(out var nt)) return;
+            var now = (long)nt.ServerTick.TickIndexForValidTick;
+            if (!_tickSystem.IsDue(now)) return;
 
-            // --- Prefab/Collection Diagnose -----------------------------------
-            var prefabRef = _prefabQ.GetSingleton<PlayerPrefabRef>();
-            bool prefabExists  = em.Exists(prefabRef.Prefab);
-            bool hasPrefabTag  = prefabExists && em.HasComponent<Prefab>(prefabRef.Prefab);
-            bool hasGhostType  = prefabExists && em.HasComponent<GhostType>(prefabRef.Prefab);
-            Debug.Log($"[{world}] Spawn pass. Prefab={prefabRef.Prefab} Exists={prefabExists} PrefabTag={hasPrefabTag} GhostType={hasGhostType}");
+
+            var em = state.EntityManager;
+
+            var prefabRef = _prefabQ.GetSingleton<PlayerPrefab>();
+            var prefabExists = em.Exists(prefabRef.Prefab);
+            var hasPrefabTag = prefabExists && em.HasComponent<Prefab>(prefabRef.Prefab);
+            var hasGhostType = prefabExists && em.HasComponent<GhostType>(prefabRef.Prefab);
+            DevLog.DebugSystem<ServerSpawnPlayerOnConnectSystem>("Server",
+                $" Spawn pass. Prefab={prefabRef.Prefab} Exists={prefabExists} PrefabTag={hasPrefabTag} GhostType={hasGhostType}");
 
             // --- Phase 1: Spawn QUEUEN (nur ECB, nichts am EntityManager anfassen) ---
             var ecb = new EntityCommandBuffer(Allocator.Temp);
@@ -79,7 +91,8 @@ namespace ServerOnly
                 // „Schon gespawnt“ markieren, damit wir nicht doppelt spawnen
                 ecb.AddComponent<PlayerSpawnedTag>(connEntity);
 
-                Debug.Log($"[{world}] Queue spawn -> deferred={player} for NID={nid.ValueRO.Value} (Playback pending)");
+                DevLog.DebugSystem<ServerSpawnPlayerOnConnectSystem>("Server",
+                    $"Queue spawn -> deferred={player} for NID={nid.ValueRO.Value} (Playback pending)");
             }
 
             // Realisieren
@@ -95,21 +108,20 @@ namespace ServerOnly
                              .Query<RefRO<PlayerSpawnLog>>()
                              .WithEntityAccess())
                 {
-                    var ent       = log.ValueRO.Player;     // jetzt REAL
-                    int expectedN = log.ValueRO.OwnerNid;
+                    var ent = log.ValueRO.Player;
+                    var expectedN = log.ValueRO.OwnerNid;
 
-                    bool exists   = em.Exists(ent);
-                    int ownerN    = -1;
-                    bool hasOwner = exists && em.HasComponent<GhostOwner>(ent);
+                    var exists = em.Exists(ent);
+                    var ownerN = -1;
+                    var hasOwner = exists && em.HasComponent<GhostOwner>(ent);
                     if (hasOwner) ownerN = em.GetComponentData<GhostOwner>(ent).NetworkId;
 
-                    bool hasLT    = exists && em.HasComponent<LocalTransform>(ent);
+                    var hasLT = exists && em.HasComponent<LocalTransform>(ent);
 
-                    Debug.Log(
-                        $"[{world}] ✅ Realized spawn entity={ent} Exists={exists} " +
+                    DevLog.DebugSystem<ServerSpawnPlayerOnConnectSystem>("Server",
+                        $"✅ Realized spawn entity={ent} Exists={exists} " +
                         $"Owner(set)={ownerN} (expected={expectedN}) HasLocalTransform={hasLT}");
 
-                    // Temp-Log wieder entfernen
                     ecb2.RemoveComponent<PlayerSpawnLog>(connEntity);
                 }
 
@@ -118,9 +130,13 @@ namespace ServerOnly
             }
 
             // --- Kurzer Audit ---------------------------------------------------
-            int conns      = _connQ.CalculateEntityCount();
-            int ghostsWithOwner = em.CreateEntityQuery(ComponentType.ReadOnly<GhostOwner>()).CalculateEntityCount();
-            Debug.Log($"[{world}] Audit: InGameConnections={conns}, GhostsWithOwner={ghostsWithOwner}");
+            var conns = _connQ.CalculateEntityCount();
+            var ghostsWithOwner = em.CreateEntityQuery(ComponentType.ReadOnly<GhostOwner>()).CalculateEntityCount();
+            DevLog.DebugSystem<ServerSpawnPlayerOnConnectSystem>("Server",
+                $"Audit: InGameConnections={conns}, GhostsWithOwner={ghostsWithOwner}");
+
+            // var rate = SystemAPI.GetSingleton<ClientServerTickRate>().SimulationTickRate;
+            // _tickSystem.OverrideIntervalTicks(math.max(1, rate), ref state);
         }
     }
 }

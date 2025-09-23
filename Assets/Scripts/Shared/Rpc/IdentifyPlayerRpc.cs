@@ -6,6 +6,6 @@ namespace Shared.Rpc
     public struct IdentifyPlayerRpc : IRpcCommand
     {
         public FixedString128Bytes Guid;
-        public FixedString64Bytes  Name;
+        public FixedString64Bytes Name;
     }
 }

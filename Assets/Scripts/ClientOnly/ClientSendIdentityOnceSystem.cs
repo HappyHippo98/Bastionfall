@@ -1,25 +1,32 @@
 ﻿using Shared.Authoring.Network;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
-using UnityEngine;
 
 namespace ClientOnly
 {
     // Einmal-Tag, damit wir die Identity nur einmal senden
-    public struct SentIdentityOnceTag : IComponentData {}
+    public struct SentIdentityOnceTag : IComponentData
+    {
+    }
 
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(ClientEnterGameSystem))]
+    [UpdateBefore(typeof(RpcSystem))]
+    [BurstCompile]
     public partial struct ClientSendIdentityOnceSystem : ISystem
     {
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EnableNetcode>();
+            state.RequireForUpdate<NetworkStreamInGame>();
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            var em  = state.EntityManager;
+            var em = state.EntityManager;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             // Beispiel: pro Connection, die schon InGame ist und noch NICHT gesendet hat

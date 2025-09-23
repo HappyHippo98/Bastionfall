@@ -5,7 +5,7 @@ namespace Shared.Authoring.Network
 {
     public class EnableNetcodeAuthoring : MonoBehaviour
     {
-        class Baker : Baker<EnableNetcodeAuthoring>
+        private class Baker : Baker<EnableNetcodeAuthoring>
         {
             public override void Bake(EnableNetcodeAuthoring authoring)
             {
@@ -15,5 +15,7 @@ namespace Shared.Authoring.Network
         }
     }
 
-    public struct EnableNetcode : IComponentData {}
+    public struct EnableNetcode : IComponentData
+    {
+    }
 }

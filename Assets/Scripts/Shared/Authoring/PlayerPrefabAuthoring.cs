@@ -8,18 +8,18 @@ namespace Shared.Authoring
         [Tooltip("Ghost-Player-Prefab (hat GhostAuthoringComponent).")]
         public GameObject playerGhostPrefab;
 
-        class Baker : Baker<PlayerPrefabAuthoring>
+        private class Baker : Baker<PlayerPrefabAuthoring>
         {
             public override void Bake(PlayerPrefabAuthoring a)
             {
                 var e = GetEntity(TransformUsageFlags.None);
                 var prefabEntity = GetEntity(a.playerGhostPrefab, TransformUsageFlags.Dynamic);
-                AddComponent(e, new PlayerPrefabRef { Prefab = prefabEntity });
+                AddComponent(e, new PlayerPrefab { Prefab = prefabEntity });
             }
         }
     }
 
-    public struct PlayerPrefabRef : IComponentData
+    public struct PlayerPrefab : IComponentData
     {
         public Entity Prefab;
     }

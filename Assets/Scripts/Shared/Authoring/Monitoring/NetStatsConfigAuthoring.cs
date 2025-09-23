@@ -9,17 +9,17 @@ namespace Shared.Authoring.Monitoring
         [Tooltip("Client pusht periodisch FPS/RTT (Server schreibt ins Ghost).")]
         public bool active = true;
 
-        [Tooltip("Intervall in Sekunden für Client-Reports.")]
-        [Min(0.05f)] public float ReportInterval = 0.5f;
+        [Tooltip("Intervall in Sekunden für Client-Reports.")] [Min(0.05f)]
+        public float ReportInterval = 0.5f;
 
-        class Baker : Baker<NetStatsConfigAuthoring>
+        private class Baker : Baker<NetStatsConfigAuthoring>
         {
             public override void Bake(NetStatsConfigAuthoring a)
             {
                 var e = GetEntity(TransformUsageFlags.None);
                 AddComponent(e, new NetStatsConfig
                 {
-                    Active        = a.active ? (byte)1 : (byte)0,
+                    Active = a.active ? (byte)1 : (byte)0,
                     ReportInterval = a.ReportInterval
                 });
             }
@@ -28,7 +28,7 @@ namespace Shared.Authoring.Monitoring
 
     public struct NetStatsConfig : IComponentData
     {
-        public byte  Active;
+        public byte Active;
         public float ReportInterval;
     }
 }

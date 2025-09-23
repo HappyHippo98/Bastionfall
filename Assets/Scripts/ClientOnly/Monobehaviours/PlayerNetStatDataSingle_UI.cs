@@ -6,7 +6,6 @@ namespace ClientOnly.Monobehaviours
 {
     public class PlayerNetStatDataSingleUI : MonoBehaviour
     {
-
         [SerializeField] private TextMeshProUGUI networkID;
         [SerializeField] private TextMeshProUGUI playerName;
         [SerializeField] private TextMeshProUGUI ping;
@@ -14,12 +13,10 @@ namespace ClientOnly.Monobehaviours
 
         private void Awake()
         {
-            
         }
-        
+
         private void Update()
         {
-            
         }
 
         public void Setup(PlayerNetStatsData data)
@@ -28,9 +25,5 @@ namespace ClientOnly.Monobehaviours
             playerName.text = $"{Mathf.RoundToInt(data.RttMs)} ms";
             ping.text = data.Fps.ToString();
         }
-
-        
-        
-        
     }
 }

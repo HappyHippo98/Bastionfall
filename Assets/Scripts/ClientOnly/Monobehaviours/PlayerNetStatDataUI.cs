@@ -40,16 +40,16 @@ namespace ClientOnly.Monobehaviours
         */
         }
 
-        void Refresh()
+        private void Refresh()
         {
             var em = ClientServerBootstrap.ClientWorld.EntityManager;
-            var q  = em.CreateEntityQuery(ComponentType.ReadOnly<PlayerNetStatsData>());
+            var q = em.CreateEntityQuery(ComponentType.ReadOnly<PlayerNetStatsData>());
 
-            using var ents  = q.ToEntityArray(Allocator.Temp);
+            using var ents = q.ToEntityArray(Allocator.Temp);
             using var stats = q.ToComponentDataArray<PlayerNetStatsData>(Allocator.Temp);
 
             var seen = new HashSet<Entity>();
-            for (int i = 0; i < ents.Length; i++)
+            for (var i = 0; i < ents.Length; i++)
             {
                 var e = ents[i];
                 seen.Add(e);
@@ -67,11 +67,16 @@ namespace ClientOnly.Monobehaviours
 
             var toRemove = new List<Entity>();
             foreach (var kv in _rowsByEntity)
-                if (!seen.Contains(kv.Key)) { Destroy(kv.Value.gameObject); toRemove.Add(kv.Key); }
+                if (!seen.Contains(kv.Key))
+                {
+                    Destroy(kv.Value.gameObject);
+                    toRemove.Add(kv.Key);
+                }
+
             foreach (var e in toRemove) _rowsByEntity.Remove(e);
         }
 
-        void ClearAll()
+        private void ClearAll()
         {
             foreach (var tr in _rowsByEntity.Values) Destroy(tr.gameObject);
             _rowsByEntity.Clear();

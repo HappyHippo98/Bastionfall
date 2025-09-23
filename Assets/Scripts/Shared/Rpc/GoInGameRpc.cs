@@ -1,7 +1,8 @@
-﻿using Unity.Entities;
-using Unity.NetCode;
+﻿using Unity.NetCode;
 
 namespace Shared.Rpc
 {
-    public struct GoInGameRpc : IRpcCommand {}
+    public struct GoInGameRpc : IRpcCommand
+    {
+    }
 }

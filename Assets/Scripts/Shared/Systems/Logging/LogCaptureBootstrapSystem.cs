@@ -1,5 +1,5 @@
-﻿using Unity.Entities;
-using Shared.Logging;
+﻿using Shared.Logging;
+using Unity.Entities;
 
 namespace Shared.Systems.Logging
 {
@@ -20,6 +20,8 @@ namespace Shared.Systems.Logging
             AppLog.SetUnityCapture(false);
         }
 
-        public void OnUpdate(ref SystemState state) { }
+        public void OnUpdate(ref SystemState state)
+        {
+        }
     }
 }

@@ -9,7 +9,7 @@ namespace Shared.Authoring.Monitoring
     {
         public string defaultName = "Player";
 
-        class Baker : Baker<PlayerIdentityAuthoring>
+        private class Baker : Baker<PlayerIdentityAuthoring>
         {
             public override void Bake(PlayerIdentityAuthoring a)
             {
@@ -27,6 +27,6 @@ namespace Shared.Authoring.Monitoring
     public struct PlayerIdentity : IComponentData
     {
         [GhostField] public FixedString128Bytes Guid;
-        [GhostField] public FixedString64Bytes  Name;
+        [GhostField] public FixedString64Bytes Name;
     }
 }

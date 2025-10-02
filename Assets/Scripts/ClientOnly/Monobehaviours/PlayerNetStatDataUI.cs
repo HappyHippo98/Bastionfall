@@ -20,28 +20,27 @@ namespace ClientOnly.Monobehaviours
             playerNetStatDataContainer.gameObject.SetActive(false);
         }
 
-        private void Update()
+        public void SetVisible(bool visible)
         {
-            if (UnityEngine.Input.GetKeyDown(KeyCode.Tab))
-            {
-                playerNetStatDataContainer.gameObject.SetActive(true);
-                Refresh();
-            }
-            if (UnityEngine.Input.GetKeyUp(KeyCode.Tab))
+            playerNetStatDataContainer.gameObject.SetActive(visible);
+            if (!visible)
             {
                 ClearAll();
-                playerNetStatDataContainer.gameObject.SetActive(false);
             }
+        }
 
+        private void Update()
+        {
             if (playerNetStatDataContainer.gameObject.activeSelf)
                 Refresh();
-        
         }
 
         private void Refresh()
         {
             var em = ClientServerBootstrap.ClientWorld.EntityManager;
-            var q = em.CreateEntityQuery(ComponentType.ReadOnly<PlayerNetStatsData>(),ComponentType.ReadOnly<PlayerIdentity>());
+            var q = em.CreateEntityQuery(
+                ComponentType.ReadOnly<PlayerNetStatsData>(),
+                ComponentType.ReadOnly<PlayerIdentity>());
 
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var stats = q.ToComponentDataArray<PlayerNetStatsData>(Allocator.Temp);
@@ -61,7 +60,7 @@ namespace ClientOnly.Monobehaviours
                 }
 
                 var ui = row.GetComponent<PlayerNetStatDataSingleUI>();
-                ui.Setup(stats[i],identities[i]);
+                ui.Setup(stats[i], identities[i]);
             }
 
             var toRemove = new List<Entity>();

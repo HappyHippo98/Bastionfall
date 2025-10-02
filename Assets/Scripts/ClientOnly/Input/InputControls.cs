@@ -93,6 +93,24 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
             ""id"": ""e7d59b40-d507-42b2-a27d-078846671bd4"",
             ""actions"": [
                 {
+                    ""name"": ""Move"",
+                    ""type"": ""Value"",
+                    ""id"": ""95e44a1c-618d-461b-a5bb-ec135e7c3702"",
+                    ""expectedControlType"": ""Vector2"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""ToggleChat"",
+                    ""type"": ""Button"",
+                    ""id"": ""6009d995-9c31-4629-8288-1fe8482125c5"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
                     ""name"": ""ToggleNetStats"",
                     ""type"": ""Button"",
                     ""id"": ""d21fd6de-8d77-4579-90a4-c0d0fc988540"",
@@ -100,22 +118,13 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
-                },
-                {
-                    ""name"": ""Move"",
-                    ""type"": ""Value"",
-                    ""id"": ""b4aeaf23-4fa3-478d-819b-542dc8b59559"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": true
                 }
             ],
             ""bindings"": [
                 {
                     ""name"": """",
                     ""id"": ""d3373945-7926-4a94-840a-d3a931fdfec3"",
-                    ""path"": ""<Keyboard>/t"",
+                    ""path"": ""<Keyboard>/tab"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -124,9 +133,9 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
                     ""isPartOfComposite"": false
                 },
                 {
-                    ""name"": ""1D Axis"",
-                    ""id"": ""b344ecf9-eb60-4652-8a61-7f3584891ead"",
-                    ""path"": ""1DAxis"",
+                    ""name"": ""2D Vector"",
+                    ""id"": ""7b103629-abdf-4a2b-a20b-c2f454889397"",
+                    ""path"": ""2DVector"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -135,8 +144,30 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
                     ""isPartOfComposite"": false
                 },
                 {
-                    ""name"": ""negative"",
-                    ""id"": ""61876fca-e30d-4831-bb9d-2e72b790696e"",
+                    ""name"": ""up"",
+                    ""id"": ""5d22e8c0-d036-4d23-818b-ca8fed7c92ad"",
+                    ""path"": ""<Keyboard>/w"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""down"",
+                    ""id"": ""911a4049-b917-4e63-8a77-6b34d64f7af5"",
+                    ""path"": ""<Keyboard>/s"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""left"",
+                    ""id"": ""31ad1839-1985-44fe-a7be-4c96b34e5103"",
                     ""path"": ""<Keyboard>/a"",
                     ""interactions"": """",
                     ""processors"": """",
@@ -146,15 +177,81 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
                     ""isPartOfComposite"": true
                 },
                 {
-                    ""name"": ""positive"",
-                    ""id"": ""f3ab60ff-6eeb-45ad-a8eb-3d350cdd3323"",
-                    ""path"": ""<Keyboard>/b"",
+                    ""name"": ""right"",
+                    ""id"": ""d401ceeb-456c-4993-b354-6032a7070fca"",
+                    ""path"": ""<Keyboard>/d"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""Move"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""2D Vector"",
+                    ""id"": ""0e238ec3-5776-419b-89d8-6aa17f29813b"",
+                    ""path"": ""2DVector"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Move"",
+                    ""isComposite"": true,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": ""up"",
+                    ""id"": ""de613d0d-146b-4cae-affb-57037dfce2d6"",
+                    ""path"": ""<Keyboard>/upArrow"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""down"",
+                    ""id"": ""af920e73-0949-459c-a571-0c2be0a697cc"",
+                    ""path"": ""<Keyboard>/downArrow"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""left"",
+                    ""id"": ""2b5131b5-7345-445a-a099-50f16ebb0951"",
+                    ""path"": ""<Keyboard>/leftArrow"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""right"",
+                    ""id"": ""f6a8ec04-98ad-46ab-811f-c812e0f6b912"",
+                    ""path"": ""<Keyboard>/rightArrow"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""65285c4d-87f7-4ae6-a050-4e2f01047efb"",
+                    ""path"": ""<Keyboard>/insert"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""ToggleChat"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -163,8 +260,9 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
 }");
         // InGameMap
         m_InGameMap = asset.FindActionMap("InGameMap", throwIfNotFound: true);
-        m_InGameMap_ToggleNetStats = m_InGameMap.FindAction("ToggleNetStats", throwIfNotFound: true);
         m_InGameMap_Move = m_InGameMap.FindAction("Move", throwIfNotFound: true);
+        m_InGameMap_ToggleChat = m_InGameMap.FindAction("ToggleChat", throwIfNotFound: true);
+        m_InGameMap_ToggleNetStats = m_InGameMap.FindAction("ToggleNetStats", throwIfNotFound: true);
     }
 
     ~@InputControls()
@@ -245,8 +343,9 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
     // InGameMap
     private readonly InputActionMap m_InGameMap;
     private List<IInGameMapActions> m_InGameMapActionsCallbackInterfaces = new List<IInGameMapActions>();
-    private readonly InputAction m_InGameMap_ToggleNetStats;
     private readonly InputAction m_InGameMap_Move;
+    private readonly InputAction m_InGameMap_ToggleChat;
+    private readonly InputAction m_InGameMap_ToggleNetStats;
     /// <summary>
     /// Provides access to input actions defined in input action map "InGameMap".
     /// </summary>
@@ -259,13 +358,17 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
         /// </summary>
         public InGameMapActions(@InputControls wrapper) { m_Wrapper = wrapper; }
         /// <summary>
-        /// Provides access to the underlying input action "InGameMap/ToggleNetStats".
-        /// </summary>
-        public InputAction @ToggleNetStats => m_Wrapper.m_InGameMap_ToggleNetStats;
-        /// <summary>
         /// Provides access to the underlying input action "InGameMap/Move".
         /// </summary>
         public InputAction @Move => m_Wrapper.m_InGameMap_Move;
+        /// <summary>
+        /// Provides access to the underlying input action "InGameMap/ToggleChat".
+        /// </summary>
+        public InputAction @ToggleChat => m_Wrapper.m_InGameMap_ToggleChat;
+        /// <summary>
+        /// Provides access to the underlying input action "InGameMap/ToggleNetStats".
+        /// </summary>
+        public InputAction @ToggleNetStats => m_Wrapper.m_InGameMap_ToggleNetStats;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -292,12 +395,15 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
         {
             if (instance == null || m_Wrapper.m_InGameMapActionsCallbackInterfaces.Contains(instance)) return;
             m_Wrapper.m_InGameMapActionsCallbackInterfaces.Add(instance);
-            @ToggleNetStats.started += instance.OnToggleNetStats;
-            @ToggleNetStats.performed += instance.OnToggleNetStats;
-            @ToggleNetStats.canceled += instance.OnToggleNetStats;
             @Move.started += instance.OnMove;
             @Move.performed += instance.OnMove;
             @Move.canceled += instance.OnMove;
+            @ToggleChat.started += instance.OnToggleChat;
+            @ToggleChat.performed += instance.OnToggleChat;
+            @ToggleChat.canceled += instance.OnToggleChat;
+            @ToggleNetStats.started += instance.OnToggleNetStats;
+            @ToggleNetStats.performed += instance.OnToggleNetStats;
+            @ToggleNetStats.canceled += instance.OnToggleNetStats;
         }
 
         /// <summary>
@@ -309,12 +415,15 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
         /// <seealso cref="InGameMapActions" />
         private void UnregisterCallbacks(IInGameMapActions instance)
         {
-            @ToggleNetStats.started -= instance.OnToggleNetStats;
-            @ToggleNetStats.performed -= instance.OnToggleNetStats;
-            @ToggleNetStats.canceled -= instance.OnToggleNetStats;
             @Move.started -= instance.OnMove;
             @Move.performed -= instance.OnMove;
             @Move.canceled -= instance.OnMove;
+            @ToggleChat.started -= instance.OnToggleChat;
+            @ToggleChat.performed -= instance.OnToggleChat;
+            @ToggleChat.canceled -= instance.OnToggleChat;
+            @ToggleNetStats.started -= instance.OnToggleNetStats;
+            @ToggleNetStats.performed -= instance.OnToggleNetStats;
+            @ToggleNetStats.canceled -= instance.OnToggleNetStats;
         }
 
         /// <summary>
@@ -356,18 +465,25 @@ public partial class @InputControls: IInputActionCollection2, IDisposable
     public interface IInGameMapActions
     {
         /// <summary>
-        /// Method invoked when associated input action "ToggleNetStats" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnToggleNetStats(InputAction.CallbackContext context);
-        /// <summary>
         /// Method invoked when associated input action "Move" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnMove(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ToggleChat" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnToggleChat(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ToggleNetStats" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnToggleNetStats(InputAction.CallbackContext context);
     }
 }

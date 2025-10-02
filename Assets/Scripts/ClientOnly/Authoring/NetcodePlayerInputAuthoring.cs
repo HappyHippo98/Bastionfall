@@ -11,16 +11,17 @@ namespace ClientOnly.Authoring
         {
             public override void Bake(NetcodePlayerInputAuthoring authoring)
             {
-                Entity e = GetEntity(TransformUsageFlags.Dynamic);
-                AddComponent(e,new NetcodePlayerInput());
+                var e = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponent(e, new NetcodePlayerInput());
             }
         }
-        
     }
 
+    
     public struct NetcodePlayerInput : IInputComponentData
     {
-        public float2 InputVector;
+        public float2 Move;         
+        public byte   ChatOpen;     
+        public byte   NetStatsHeld; 
     }
-    
 }

@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 2078983362034035149}
   - component: {fileID: 6539926280619426803}
   - component: {fileID: -2829454892040535723}
+  - component: {fileID: 6450889146032176440}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -193,4 +194,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e76290383be493fbef39d567ec0edf5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Shared::Shared.Authoring.Identity.PlayerIdentityAuthoring
-  UsePersistedName: 0
+--- !u!114 &6450889146032176440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7917670443027229932}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c4360864ae04d8c8ea99b2518f68cc9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Shared::Shared.Authoring.Appearance.PlayerAppearanceAuthoring
+  startColor: {r: 0.5204486, g: 0.5283019, b: 0.13207547, a: 1}

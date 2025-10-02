@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 
 namespace ClientOnly.Input
 {
+    /*
     [DisableAutoCreation]
     public partial class PlayerInputSystem : SystemBase
     {
@@ -29,4 +30,5 @@ namespace ClientOnly.Input
             _ingameMapActions.Move.performed -= OnMovePerformed;
         }
     }
+    */
 }

@@ -7,19 +7,17 @@ using Unity.Transforms;
 
 namespace ClientOnly
 {
-    
-    
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
-    partial struct NetcodePlayerMovementSystem : ISystem
+    public partial struct NetcodePlayerMovementSystem : ISystem
     {
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            foreach (var (playerInput, lt) in 
-                     SystemAPI.Query<RefRO<NetcodePlayerInput>,RefRW<LocalTransform>>().WithAll<Simulate>())
+            foreach (var (input, lt) in
+                     SystemAPI.Query<RefRO<NetcodePlayerInput>, RefRW<LocalTransform>>().WithAll<Simulate>())
             {
-                float moveSpeed = 10f;
-                float3 moveVector = new float3(playerInput.ValueRO.InputVector.x,0,playerInput.ValueRO.InputVector.y);
+                const float moveSpeed = 10f;
+                float3 moveVector = new float3(input.ValueRO.Move.x, 0, input.ValueRO.Move.y);
                 lt.ValueRW.Position += moveVector * moveSpeed * SystemAPI.Time.DeltaTime;
             }
         }

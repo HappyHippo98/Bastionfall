@@ -1,4 +1,5 @@
-﻿using Shared.Authoring.Monitoring; // PlayerIdentity
+﻿﻿using Shared.Authoring.Monitoring; // PlayerIdentity
+using Shared.Rpc;                  // ChatMessageRpc
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -12,6 +13,7 @@ namespace ServerOnly.Systems
 
     /// <summary>
     /// Sucht neue Player-Ghosts und kopiert die PlayerIdentity von der Connection auf den Ghost.
+    /// Zusätzlich: broadcastet "<Name> spawned" (SERVER) sobald Identity angewendet wurde.
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -32,6 +34,7 @@ namespace ServerOnly.Systems
                 {
                     ComponentType.ReadOnly<NetworkId>(),
                     ComponentType.ReadOnly<NetworkStreamInGame>(),
+                    ComponentType.ReadOnly<NetworkStreamConnection>(),
                     ComponentType.ReadOnly<PlayerIdentity>() // vom RPC gesetzt (an der Connection)
                 }
             });
@@ -58,14 +61,13 @@ namespace ServerOnly.Systems
             var ecb = new EntityCommandBuffer(state.WorldUpdateAllocator);
 
             // Map: NetworkId -> Connection-Entity
-            var connEntities = _connectionsQuery.ToEntityArray(Allocator.Temp);
-            var connIds      = _connectionsQuery.ToComponentDataArray<NetworkId>(Allocator.Temp);
-            var connMap      = new NativeParallelHashMap<int, Entity>(connEntities.Length, Allocator.Temp);
-
+            using var connEntities = _connectionsQuery.ToEntityArray(state.WorldUpdateAllocator);
+            using var connIds      = _connectionsQuery.ToComponentDataArray<NetworkId>(state.WorldUpdateAllocator);
+            var connMap = new NativeParallelHashMap<int, Entity>(connEntities.Length, state.WorldUpdateAllocator);
             for (int i = 0; i < connEntities.Length; i++)
                 connMap.TryAdd(connIds[i].Value, connEntities[i]);
 
-            foreach (var (owner, ghost, e) in SystemAPI
+            foreach (var (owner, ghostId, e) in SystemAPI
                          .Query<RefRO<GhostOwner>, RefRW<PlayerIdentity>>()
                          .WithNone<PlayerIdentityAppliedTag>()
                          .WithEntityAccess())
@@ -75,19 +77,33 @@ namespace ServerOnly.Systems
                 if (connMap.TryGetValue(netId, out var conn))
                 {
                     var id = SystemAPI.GetComponent<PlayerIdentity>(conn);
-                    ghost.ValueRW.DisplayName = id.DisplayName;
-                    ghost.ValueRW.Guid        = id.Guid;
+                    ghostId.ValueRW.DisplayName = id.DisplayName;
+                    ghostId.ValueRW.Guid        = id.Guid;
 
+                    // Tag setzen (fertig angewendet)
                     ecb.AddComponent<PlayerIdentityAppliedTag>(e);
 
+                    // --- SERVERMSG: "<Name> spawned" an alle ---
+                    using var targets = _connectionsQuery.ToEntityArray(state.WorldUpdateAllocator);
+                    for (int i = 0; i < targets.Length; i++)
+                    {
+                        var rpc = ecb.CreateEntity();
+                        ecb.AddComponent(rpc, new ChatMessageRpc
+                        {
+                            SenderNetworkId = 0,
+                            SenderName      = (FixedString64Bytes)"SERVER",
+                            Text            = (FixedString512Bytes)$"{id.DisplayName} spawned"
+                        });
+                        ecb.AddComponent(rpc, new SendRpcCommandRequest { TargetConnection = targets[i] });
+                    }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                    Debug.Log($"[Server] Applied Identity to Ghost (NetId={netId}) → Name={id.DisplayName}, Guid={id.Guid}");
+                    Debug.Log($"[Server] Applied Identity to Ghost (NetId={netId}) → Name={id.DisplayName}, Guid={id.Guid} (+spawned msg)");
 #endif
                 }
             }
 
             ecb.Playback(state.EntityManager);
-            connMap.Dispose();
         }
     }
 }

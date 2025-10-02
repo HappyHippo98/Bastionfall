@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace ClientOnly
 {
-    
+    /*
     [UpdateInGroup(typeof(GhostInputSystemGroup))]
     partial struct NetcodePlayerInputSystem : ISystem
     {
@@ -43,4 +43,5 @@ namespace ClientOnly
             }
         }
     }
+    */
 }

@@ -10,7 +10,6 @@ namespace BastionFall.Features.Time.Client
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     public partial struct ClientApplyInGameTickSyncSystem : ISystem
     {
         public void OnCreate(ref SystemState s)

@@ -15,7 +15,6 @@ namespace BastionFall.Features.Player.Server
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ServerHandleIdentifyPlayerRpcSystem : ISystem
     {

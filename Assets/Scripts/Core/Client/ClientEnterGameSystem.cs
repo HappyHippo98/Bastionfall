@@ -12,7 +12,6 @@ namespace BastionFall.Core.Client
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(NetworkStreamConnectSystem))]
     [RunEveryServerTicks(30)]
     [BurstCompile]
     public partial struct ClientEnterGameSystem : ISystem

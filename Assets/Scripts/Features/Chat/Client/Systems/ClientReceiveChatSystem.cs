@@ -11,7 +11,6 @@ namespace BastionFall.Features.Chat.Client.Systems
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial class ClientReceiveChatSystem : SystemBase
     {

@@ -12,7 +12,6 @@ namespace BastionFall.Features.Player.Server.Monitoring
     // Server empfängt Reports und schreibt NetStats in den passenden Player-Ghost (Owner Match).
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     [UpdateAfter(typeof(ServerSpawnPlayerOnConnectSystem))]
     [BurstCompile]
     public partial struct ServerApplyNetStatsToGhostSystem : ISystem

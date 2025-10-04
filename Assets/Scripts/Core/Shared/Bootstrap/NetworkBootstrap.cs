@@ -100,7 +100,7 @@ namespace BastionFall.Core.Shared.Bootstrap
             {
                 SimulationTickRate = hz,
                 NetworkTickRate = hz,
-                MaxSimulationStepsPerFrame = 4
+                MaxSimulationStepsPerFrame = 1
             };
 
             var q = em.CreateEntityQuery(ComponentType.ReadWrite<ClientServerTickRate>());

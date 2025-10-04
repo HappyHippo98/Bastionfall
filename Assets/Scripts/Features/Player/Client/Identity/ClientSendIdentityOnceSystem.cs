@@ -15,7 +15,6 @@ namespace BastionFall.Features.Player.Client.Identity
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ClientSendIdentityOnceSystem : ISystem
     {

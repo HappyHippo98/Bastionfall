@@ -11,7 +11,6 @@ namespace BastionFall.Features.Player.Client.Monitoring
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ClientReportNetStatsSystem : ISystem
     {

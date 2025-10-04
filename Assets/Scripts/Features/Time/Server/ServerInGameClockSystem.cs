@@ -12,7 +12,6 @@ namespace BastionFall.Features.Time.Server
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ServerNetcodeTickBridgeSystem))]
-    [UpdateBefore(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ServerInGameClockSystem : ISystem
     {

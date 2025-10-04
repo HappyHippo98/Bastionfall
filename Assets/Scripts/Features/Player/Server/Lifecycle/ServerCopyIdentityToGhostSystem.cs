@@ -13,7 +13,6 @@ namespace BastionFall.Features.Player.Server.Lifecycle
 
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ServerCopyIdentityToGhostSystem : ISystem
     {

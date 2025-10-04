@@ -10,7 +10,6 @@ namespace BastionFall.Core.Server
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateBefore(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ServerListenSystem : ISystem
     {

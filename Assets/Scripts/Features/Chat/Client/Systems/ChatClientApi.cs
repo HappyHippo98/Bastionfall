@@ -8,6 +8,8 @@ namespace BastionFall.Features.Chat.Client.Systems
         public static void Send(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return;
+            ChatClientLocalHistory.Push(text);
+
             var world = ClientServerBootstrap.ClientWorld;
             if (world == null) return;
 

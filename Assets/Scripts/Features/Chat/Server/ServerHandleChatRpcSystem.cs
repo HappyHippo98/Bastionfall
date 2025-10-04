@@ -1,6 +1,7 @@
 ﻿using BastionFall.Core.Shared.Request.Player;
 using BastionFall.Features.Chat.Shared.Commands;
 using BastionFall.Features.Chat.Shared.RPC;
+using BastionFall.Features.Player.Shared.Authoring.Monitoring;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -14,7 +15,6 @@ namespace BastionFall.Features.Chat.Server
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ServerHandleChatRpcSystem : ISystem
     {
@@ -41,6 +41,10 @@ namespace BastionFall.Features.Chat.Server
                 var srcConn = req.ValueRO.SourceConnection;
                 var senderId = em.HasComponent<NetworkId>(srcConn) ? em.GetComponentData<NetworkId>(srcConn).Value : -1;
                 var senderName = (FixedString64Bytes)"Player";
+
+                // Name aus PlayerIdentity an der Connection holen, falls schon gesetzt
+                if (em.HasComponent<PlayerIdentity>(srcConn))
+                    senderName = em.GetComponentData<PlayerIdentity>(srcConn).DisplayName;
 
                 var raw = send.ValueRO.Text.ToString();
                 var text = raw.Trim();
@@ -116,8 +120,11 @@ namespace BastionFall.Features.Chat.Server
                     var req = ecb.CreateEntity();
                     ecb.AddComponent(req, new RequestPlayerColorChange { OwnerNetworkId = senderId, Rgba = rgba });
 
-                    // optionales Feedback
-                    BroadcastChat(ref state, senderId, senderName, (FixedString512Bytes)"*changed color*", ecb);
+                    // Server-Meldung mit Namen & Wunschfarbe
+                    BroadcastSystemToAll(ref state,
+                        (FixedString512Bytes)$"player {senderName} changed color to {arg}", ecb);
+
+                    // (kein normales Chat-echo mehr)
                     break;
                 }
             }

@@ -9,7 +9,6 @@ namespace BastionFall.Core.Client
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateBefore(typeof(NetworkStreamConnectSystem))]
     [BurstCompile]
     public partial struct ClientAutoConnectSystem : ISystem
     {

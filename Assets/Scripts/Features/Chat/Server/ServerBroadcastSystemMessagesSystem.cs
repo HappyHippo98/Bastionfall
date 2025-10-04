@@ -12,7 +12,6 @@ namespace BastionFall.Features.Chat.Server
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     [BurstCompile]
     public partial struct ServerBroadcastSystemMessagesSystem : ISystem
     {

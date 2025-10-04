@@ -6,12 +6,10 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 
-namespace BastionFall.Core.Server
+namespace BastionFall.Core.Server.RPC
 {
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
-    [RunEveryServerTicks(10)]
     [BurstCompile]
     public partial struct ServerHandleInGameRpcSystem : ISystem
     {
